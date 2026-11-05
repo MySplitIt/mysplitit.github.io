@@ -2,10 +2,10 @@
 import { html, render, useState, useEffect, useMemo, useRef } from "https://unpkg.com/htm@3.1.1/preact/standalone.module.js";
 import * as C from "./core.js?v=20261105b";
 import * as D from "./data.js?v=20261105b";
+import { Icon, Logo, Tile, CategoryTile, CATEGORIES, categoryStyle, expenseStyle, PAYMENT } from "./brand.js?v=20261105d";
 
 // ---------- Helpers ----------
-const CATEGORIES = [["Trip", "✈️"], ["Outing", "🍽️"], ["Home", "🏠"], ["Event", "🎉"], ["Other", "📌"]];
-const emoji = (c) => (CATEGORIES.find((x) => x[0] === c) || [0, "📌"])[1];
+const emoji = (c) => categoryStyle(c).emoji;
 const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const COLORS = ["#e65100", "#00838f", "#c2185b", "#5e35b1", "#2e7d32", "#3949ab", "#6d4c41", "#00897b", "#8e24aa", "#d84315"];
 const color = (s) => COLORS[[...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % COLORS.length];
@@ -220,7 +220,8 @@ function GroupDialog({ initial, onClose }) {
     actions=${html`<button class="btn text" onClick=${onClose}>Cancel</button><button class="btn primary" disabled=${!ok} onClick=${save}>${initial ? "Save" : "Create"}</button>`}>
     <label class="field">Group name<input class="input ${duplicate ? "error" : ""}" value=${name} maxlength="100" placeholder="e.g. Florida trip" onInput=${(e) => setName(e.target.value)} autofocus />
       ${duplicate && html`<span class="hint error">You already have a group with this name. Pick a different name.</span>`}</label>
-    <div class="seg">${CATEGORIES.map(([c, e]) => html`<button type="button" aria-pressed=${category === c} onClick=${() => setCategory(c)}>${e} ${c}</button>`)}</div>
+    <div class="field">Type<div class="cat-grid" role="radiogroup">${CATEGORIES.map((c) => html`<button type="button" role="radio" class="cat" aria-checked=${category === c.name}
+      style=${`--c:${c.color}`} onClick=${() => setCategory(c.name)}><${Tile} icon=${c.icon} color=${c.color} size=${36} /><span>${c.name}</span></button>`)}</div></div>
     <label class="field">Default currency<${CurrencySelect} value=${currency} onChange=${setCurrency} /><span class="hint">Each expense can still use its own currency.</span></label>
     ${!initial && html`<div class="card stack" style="background:var(--surface-2)">
       <label class="check"><input type="checkbox" checked=${addMe} onChange=${(e) => setAddMe(e.target.checked)} /> Add me to this group</label>
@@ -239,20 +240,44 @@ function GroupsPage() {
   return html`<div>
     <div class="topbar"><h1>Groups</h1><span class="right"></span>
       <button class="btn primary" onClick=${() => setCreating(true)}>+ New group</button></div>
+    ${groups.length > 0 && html`<${Summary} groups=${groups} />`}
     ${!s.profileLoaded && s.status !== "offline" && !groups.length ? html`<p class="muted">Loading your groups…</p>` : !groups.length ? html`<div class="empty card">
-      <div class="big">🧳</div><h2>No groups yet</h2><p>Create a group, or ask a friend on the app to add you with ${s.user.email}.</p>
+      <${Logo} size=${88} /><h2>No groups yet</h2>
+      <div class="row" style="justify-content:center;gap:8px">${CATEGORIES.slice(0, 5).map((c) => html`<${Tile} icon=${c.icon} color=${c.color} size=${36} />`)}</div><p>Create a group, or ask a friend on the app to add you with ${s.user.email}.</p>
       <button class="btn primary" onClick=${() => setCreating(true)}>Create a group</button></div>`
     : html`<div class="cards">${groups.map((g) => {
       const left = C.unsettled(g);
       return html`<button class="card group-card" onClick=${() => go("group/" + g.id)}>
-        <span class="emoji">${emoji(g.category)}</span>
-        <span class="grow"><b class="ellipsis" style="display:block">${g.name}</b>
-          <span class="small muted">${membersLabel(g)} · ${count(g.expenses.length, "expense", "expenses")}</span><br />
-          ${g.expenses.length > 0 && html`<span class="small ${left.size ? "bad" : "good"}">${left.size ? C.formatTotals(left, g.currency) + " to settle" : "All settled up"}</span>`}</span>
+        <${CategoryTile} category=${g.category} size=${54} />
+        <span class="grow"><b class="ellipsis" style="display:block;font-size:1.05rem">${g.name}</b>
+          <span class="small muted">${membersLabel(g)} · ${count(g.expenses.length, "expense", "expenses")}</span>
+          ${g.expenses.length > 0 && html`<span class=${"pill " + (left.size ? "warn" : "ok")}>${left.size ? C.formatTotals(left, g.currency) + " to settle" : "All settled up"}</span>`}</span>
         <span class="amount">${C.formatTotals(C.totals(g), g.currency)}<br /><span class="small muted" style="font-weight:400">spent</span></span>
       </button>`;
     })}</div>`}
     ${creating && html`<${GroupDialog} onClose=${() => setCreating(false)} />`}
+  </div>`;
+}
+
+/** Brand header on the groups page: what you're owed and what you owe across all groups. */
+function Summary({ groups }) {
+  const s = useStore();
+  const o = C.friendsOverview(groups, s.user.email);
+  const owed = new Map(), owe = new Map();
+  for (const f of o.friends) for (const [c, v] of f.totals) {
+    if (v > 0) owed.set(c, (owed.get(c) || 0) + v); else if (v < 0) owe.set(c, (owe.get(c) || 0) - v);
+  }
+  const main = groups[0].currency;
+  const lines = (m) => (m.size ? [...m].sort(([a], [b]) => (b === main) - (a === main)) : [[main, 0]])
+    .map(([c, v]) => html`<b class=${m.size > 1 ? "sm" : ""}>${C.formatMoney(v, c)}</b>`);
+  const first = ((s.profile && s.profile.name) || s.user.name || "").trim().split(/\s+/)[0];
+  const shared = groups.filter((g) => g.access.length > 1).length;
+  return html`<div class="hero">
+    <${Logo} size=${170} tile=${false} cls="hero-mark" />
+    <div class="hero-title">${first ? `Hi, ${first}` : "Your groups"}</div>
+    <div class="hero-cols"><div><span class="lbl owed">You're owed</span>${lines(owed)}</div>
+      <div><span class="lbl owe">You owe</span>${lines(owe)}</div></div>
+    <div class="hero-foot">${count(groups.length, "group", "groups")}${shared ? ` · ${shared} shared` : ""} · ${count(o.friends.length, "friend", "friends")}</div>
   </div>`;
 }
 
@@ -269,8 +294,9 @@ function GroupPage({ id, tab, sub }) {
   return html`<div>
     <div class="topbar">
       <a class="icon-btn" href="#/groups" aria-label="Back">${ICON.back}</a>
-      <div class="grow"><h1 class="ellipsis">${emoji(g.category)} ${g.name}</h1>
-        <div class="small muted">${membersLabel(g)} · ${C.formatTotals(C.totals(g), g.currency)} spent · shared with ${g.access.length}</div></div>
+      <${CategoryTile} category=${g.category} size=${44} />
+      <div class="grow"><h1 class="ellipsis">${g.name}</h1>
+        <div class="small muted">${membersLabel(g)} · shared with ${g.access.length}</div></div>
       <button class="btn ghost small" onClick=${() => setDialog("share")}>Share</button>
       <div style="position:relative"><button class="icon-btn" aria-label="More" onClick=${() => setMenu(!menu)}>${ICON.more}</button>
         ${menu && html`<div class="card" style="position:absolute;right:0;top:44px;z-index:10;display:grid;padding:6px;min-width:190px;box-shadow:var(--shadow)">
@@ -322,18 +348,20 @@ function ExpensesTab({ g }) {
   if (!items.length) return html`<div class="empty card"><div class="big">🧾</div><h2>No expenses yet</h2><p>Add the first expense, like a hotel, dinner or tickets.</p></div>`;
   const name = (id) => (g.members.find((m) => m.id === id) || { name: "Someone" }).name;
   return html`<div>
-    <div class="total-card"><span class="small">Total spent</span><b>${C.formatTotals(C.totals(g), g.currency)}</b><span class="small">${count(g.expenses.length, "expense", "expenses")} · click one to edit</span></div>
+    <div class="total-card" style=${`--c:${categoryStyle(g.category).color}`}><${Icon} name=${categoryStyle(g.category).icon} size=${150} cls="total-mark" />
+      <span class="small">Total spent</span><b>${C.formatTotals(C.totals(g), g.currency)}</b><span class="small">${count(g.expenses.length, "expense", "expenses")} · ${membersLabel(g)} · click one to edit</span></div>
     <div class="list">${items.map(({ e, p }) => {
       const d = day(e ? e.createdAt : p.createdAt);
-      const date = html`<span class="date"><span class="small muted">${d.toLocaleString(undefined, { month: "short" })}</span><b>${d.getDate()}</b></span>`;
-      if (p) return html`<div class="item payment">${date}<div class="grow"><b>🤝 ${name(p.from)} paid ${name(p.to)}</b><div class="small muted">Settle-up payment</div></div>
+      const date = d.toLocaleString(undefined, { day: "numeric", month: "short" });
+      if (p) return html`<div class="item payment"><${Tile} icon=${PAYMENT.icon} color=${PAYMENT.color} size=${44} /><div class="grow"><b>${name(p.from)} paid ${name(p.to)}</b><div class="small muted">${date} · Settle-up payment</div></div>
         <span class="amount">${C.formatMoney(p.amount, p.currency)}</span></div>`;
+      const look = expenseStyle(e.name + " " + (e.description || ""));
       const all = e.splitAmong.length === g.members.length;
-      return html`<div class="item clickable" onClick=${() => go(`group/${g.id}/expense/${e.id}`)}>${date}
+      return html`<div class="item clickable" onClick=${() => go(`group/${g.id}/expense/${e.id}`)}><${Tile} icon=${look.icon} color=${look.color} size=${44} />
         <div class="grow"><b>${e.name}</b><div class="small muted">${name(e.paidBy)} paid · split among ${all ? "everyone" : e.splitAmong.length + " of " + g.members.length}</div>
           ${e.mode === "AGE" && html`<div class="small" style="color:var(--brand-strong)">${C.formatMoney(e.adultPrice, e.currency)} per adult · ${C.formatMoney(e.kidPrice, e.currency)} per kid${C.ageSubtotal(e) !== e.amount ? ` · ${e.amount > C.ageSubtotal(e) ? "+" : "−"}${C.formatMoney(Math.abs(e.amount - C.ageSubtotal(e)), e.currency)} ${e.amount > C.ageSubtotal(e) ? "tax" : "discount"}` : ""}</div>`}
           ${e.description && html`<div class="small muted">${e.description}</div>`}</div>
-        <span class="amount">${C.formatMoney(e.amount, e.currency)}</span></div>`;
+        <span class="amount">${C.formatMoney(e.amount, e.currency)}<span class="small muted when">${date}</span></span></div>`;
     })}</div></div>`;
 }
 
@@ -349,8 +377,8 @@ function BalancesTab({ g }) {
       return html`<div class="stack"><h3>${curs.length > 1 ? C.currencyLabel(cur) : "Who's up, who's down"}</h3>
         <div class="list">${g.members.map((m) => { const v = net.get(m.id) || 0; return html`<div class="item"><${Avatar} name=${m.name} />
           <div class="grow"><b>${m.name}</b></div><span class="amount ${v > 0 ? "good" : v < 0 ? "bad" : "muted"}">${v === 0 ? "settled" : (v > 0 ? "gets back " : "owes ") + C.formatMoney(Math.abs(v), cur)}</span></div>`; })}</div>
-        ${t.length > 0 && html`<h3>Suggested payments</h3><div class="list">${t.map((x) => html`<div class="item"><div class="grow"><b>${name(x.from)} → ${name(x.to)}</b></div>
-          <span class="amount">${C.formatMoney(x.amount, cur)}</span><button class="btn ghost small" onClick=${() => setSettle(x)}>Mark paid</button></div>`)}</div>`}
+        ${t.length > 0 && html`<h3>Suggested payments</h3><div class="list">${t.map((x) => html`<div class="item"><span class="pair"><${Avatar} name=${name(x.from)} size=${34} /><span class="muted">→</span><${Avatar} name=${name(x.to)} size=${34} /></span>
+          <div class="grow"><span class="small muted">${name(x.from)} pays ${name(x.to)}</span><b style="display:block">${C.formatMoney(x.amount, cur)}</b></div><button class="btn ghost small" onClick=${() => setSettle(x)}>Mark paid</button></div>`)}</div>`}
       </div>`;
     })}
     ${g.members.length >= 2 && html`<button class="btn ghost" style="justify-self:start" onClick=${() => setSettle({})}>Record a payment</button>`}
@@ -615,7 +643,7 @@ function FriendPage({ fkey: k }) {
       const g = s.groups.get(l.groupId); if (!g) return null;
       const first = [...l.amounts].find(([, v]) => v !== 0);
       const me = C.meIn(g, s.user.email);
-      return html`<div class="item"><span class="emoji" style="width:40px;height:40px;font-size:1.2rem">${emoji(g.category)}</span>
+      return html`<div class="item"><${CategoryTile} category=${g.category} size=${40} />
         <div class="grow clickable" style="cursor:pointer" onClick=${() => go("group/" + g.id)}><b>${g.name}</b>
           ${l.amounts.size === 0 || !first ? html`<div class="small muted">settled up</div>` : [...l.amounts].filter(([, v]) => v).map(([c, v]) => html`<div class="small ${v > 0 ? "good" : "bad"}">${v > 0 ? "owes you " : "you owe "}${C.formatMoney(Math.abs(v), c)}</div>`)}</div>
         ${first && me && html`<button class="btn ghost small" onClick=${() => setSettle({ g, t: first[1] > 0 ? { from: l.memberId, to: me, amount: first[1], currency: first[0] } : { from: me, to: l.memberId, amount: -first[1], currency: first[0] } })}>Settle</button>`}</div>`;
@@ -693,11 +721,12 @@ function App() {
   else body = html`<${GroupsPage} />`;
   const nav = [["groups", "Groups"], ["friends", "Friends"], ["account", "Account"]];
   return html`<div class="shell">
-    <aside class="side"><a class="brand" href="../"><img src="../assets/icon.svg" alt="" />MySplitIt</a>
+    <aside class="side"><a class="brand" href="../"><${Logo} size=${34} />MySplitIt</a>
       <nav class="nav">${nav.map(([k, l]) => html`<a href=${"#/" + k} class=${section === k ? "active" : ""}>${ICON[k]}${l}</a>`)}</nav>
       <div class="foot"><span class=${"status " + s.status}>${{ synced: "● Synced", syncing: "Syncing…", offline: "Offline · will sync later" }[s.status] || ""}</span>
         <span class="ellipsis">${s.user.email}</span><button class="btn text small" style="justify-self:start;padding:0" onClick=${toggleTheme}>${ICON.theme} Theme</button></div></aside>
     <main class="main">
+      <a class="mobile-brand" href="#/groups"><${Logo} size=${32} /><span>MySplitIt</span></a>
       ${s.error && html`<div class="banner error row"><span class="grow small">${s.error}</span><button class="btn text small" onClick=${() => D.setError(null)}>OK</button></div>`}
       ${body}</main>
     <nav class="bottom-nav">${nav.map(([k, l]) => html`<a href=${"#/" + k} class=${section === k ? "active" : ""}>${ICON[k]}${l}</a>`)}</nav>
