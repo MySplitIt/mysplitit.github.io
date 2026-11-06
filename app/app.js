@@ -238,6 +238,16 @@ const isStandalone = () => matchMedia("(display-mode: standalone)").matches || n
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const SHARE_ICON = html`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>`;
 
+/** The two taps for this iPhone browser. iPhone browsers have no install button; it's always Share. */
+function iosSteps() {
+  const ua = navigator.userAgent;
+  const then = html`, then <b>Add to Home Screen</b>.`;
+  if (/CriOS/.test(ua)) return html`In Chrome, tap ${SHARE_ICON} <b>Share</b> at the right of the address bar (or <b>•••</b> → <b>Share</b>)${then}`;
+  if (/EdgiOS/.test(ua)) return html`In Edge, tap <b>•••</b> → ${SHARE_ICON} <b>Share</b>${then}`;
+  if (/FxiOS/.test(ua)) return html`In Firefox, tap <b>☰</b> → ${SHARE_ICON} <b>Share</b>${then}`;
+  return html`In Safari, tap ${SHARE_ICON} <b>Share</b> (on newer iPhones it's under <b>•••</b>)${then}`;
+}
+
 /**
  * Offers to put MySplitIt on the home screen. Chrome (Android, computers) has a real install
  * prompt; Safari on iPhone has none, so it shows the two taps instead. Hidden once installed,
@@ -268,7 +278,7 @@ function InstallBanner({ always = false }) {
     <${Logo} size=${44} />
     <div class="grow"><b>Add MySplitIt to your home screen</b>
       <div class="small muted">${ios
-        ? html`In Safari, tap ${SHARE_ICON} <b>Share</b> (on newer iPhones it's under <b>•••</b>), then <b>Add to Home Screen</b>. It opens like an app, with the MySplitIt icon.`
+        ? html`${iosSteps()} It opens like an app, with the MySplitIt icon.`
         : "Open it like an app, straight from your home screen, with the MySplitIt icon."}</div></div>
     <div class="row">${!always && html`<button class="btn text small" onClick=${notNow}>Not now</button>`}
       ${!ios && html`<button class="btn primary small" onClick=${install}>Install</button>`}</div>
