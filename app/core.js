@@ -131,6 +131,15 @@ export const isInvolved = (g, id) =>
   g.expenses.some((e) => e.paidBy === id || e.splitAmong.includes(id)) ||
   g.payments.some((p) => p.from === id || p.to === id);
 
+/**
+ * A "per family" expense: one total amount where every included family or person counts once.
+ * Stored as each of them counting as 1 adult, so every app version splits it the same way.
+ * Same rule as Splits.isPerFamily on Android.
+ */
+export const isPerFamily = (e, g) => e.mode === "EQUAL" && e.splitAmong.length > 0
+  && e.splitAmong.every((id) => e.counts[id] && e.counts[id].adults === 1 && e.counts[id].kids === 0)
+  && e.splitAmong.some((id) => { const m = g.members.find((x) => x.id === id); return m && m.adults + m.kids > 1; });
+
 export const totalHeads = (g) => g.members.reduce((s, m) => s + m.adults + m.kids, 0);
 
 // ---------- Friends (one-to-one balances) ----------
