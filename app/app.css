@@ -181,3 +181,8 @@ label.field { display: grid; gap: 5px; font-weight: 600; font-size: .88rem; }
 div.field { display: grid; gap: 5px; font-weight: 600; font-size: .88rem; }
 .per-family { align-items: flex-start; background: var(--brand-soft); border-radius: 12px; padding: 10px 12px; font-weight: 400; }
 .per-family input { margin-top: 3px; }
+.install { gap: 12px; align-items: center; margin-bottom: 12px; border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); background: color-mix(in srgb, var(--brand) 6%, var(--surface)); }
+.install .logo-mark { border-radius: 12px; }
+@media (max-width: 520px) { .install { flex-wrap: wrap; } .install > .row { width: 100%; justify-content: flex-end; } }
+/* Opened from the home screen: leave room for the phone's status bar and home bar. */
+@media (display-mode: standalone) { .main { padding-top: max(16px, env(safe-area-inset-top)); } .bottom-nav { padding-bottom: max(6px, env(safe-area-inset-bottom)); } }

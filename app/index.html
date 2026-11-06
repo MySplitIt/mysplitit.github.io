@@ -7,16 +7,27 @@
   <meta name="description" content="Use MySplitIt in your browser: sign in with Google to see your groups and add expenses with friends on the app.">
   <meta name="theme-color" content="#00897b">
   <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+  <!-- Install as an app: Android/desktop Chrome use the manifest; iPhone/iPad use the apple-* tags. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MySplitIt">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="app.css?v=20261106a">
+  <link rel="stylesheet" href="app.css?v=20261106b">
   <script>try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+  <script>
+    // Chrome offers "Install app" through this event, often before the app code has loaded: keep it for later.
+    window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); window.__installPrompt = e; window.dispatchEvent(new Event("installready")); });
+  </script>
 </head>
 <body>
   <div id="root"><div class="boot"><img src="../assets/icon.svg" alt="" width="56" height="56"><p>Loading MySplitIt…</p></div></div>
   <noscript>MySplitIt Web needs JavaScript turned on.</noscript>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" defer></script>
-  <script type="module" src="app.js?v=20261106a"></script>
+  <script type="module" src="app.js?v=20261106b"></script>
 </body>
 </html>

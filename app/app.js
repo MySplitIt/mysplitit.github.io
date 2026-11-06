@@ -233,6 +233,48 @@ function GroupDialog({ initial, onClose }) {
   </${Dialog}>`;
 }
 
+// ---------- Add to home screen ----------
+const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const SHARE_ICON = html`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>`;
+
+/**
+ * Offers to put MySplitIt on the home screen. Chrome (Android, computers) has a real install
+ * prompt; Safari on iPhone has none, so it shows the two taps instead. Hidden once installed,
+ * or for two weeks after "Not now" (unless [always], used on the Account page).
+ */
+function InstallBanner({ always = false }) {
+  const [prompt, setPrompt] = useState(window.__installPrompt || null);
+  const [later, setLater] = useState(() => { try { return Date.now() < Number(localStorage.getItem("installLater") || 0); } catch (e) { return false; } });
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    const ready = () => setPrompt(window.__installPrompt);
+    const installed = () => { window.__installPrompt = null; setPrompt(null); setDone(true); };
+    window.addEventListener("installready", ready);
+    window.addEventListener("appinstalled", installed);
+    return () => { window.removeEventListener("installready", ready); window.removeEventListener("appinstalled", installed); };
+  }, []);
+  if (done || isStandalone() || (later && !always)) return null;
+  const ios = isIOS();
+  if (!prompt && !ios) return null;
+  const notNow = () => { try { localStorage.setItem("installLater", String(Date.now() + 14 * 86400000)); } catch (e) { /* fine */ } setLater(true); };
+  const install = async () => {
+    prompt.prompt();
+    const choice = await prompt.userChoice.catch(() => null);
+    window.__installPrompt = null; setPrompt(null);
+    if (choice && choice.outcome === "accepted") setDone(true);
+  };
+  return html`<div class="install card row">
+    <${Logo} size=${44} />
+    <div class="grow"><b>Add MySplitIt to your home screen</b>
+      <div class="small muted">${ios
+        ? html`In Safari, tap ${SHARE_ICON} <b>Share</b> (on newer iPhones it's under <b>•••</b>), then <b>Add to Home Screen</b>. It opens like an app, with the MySplitIt icon.`
+        : "Open it like an app, straight from your home screen, with the MySplitIt icon."}</div></div>
+    <div class="row">${!always && html`<button class="btn text small" onClick=${notNow}>Not now</button>`}
+      ${!ios && html`<button class="btn primary small" onClick=${install}>Install</button>`}</div>
+  </div>`;
+}
+
 function GroupsPage() {
   const s = useStore();
   const [creating, setCreating] = useState(false);
@@ -240,6 +282,7 @@ function GroupsPage() {
   return html`<div>
     <div class="topbar"><h1>Groups</h1><span class="right"></span>
       <button class="btn primary" onClick=${() => setCreating(true)}>+ New group</button></div>
+    <${InstallBanner} />
     ${groups.length > 0 && html`<${Summary} groups=${groups} />`}
     ${!s.profileLoaded && s.status !== "offline" && !groups.length ? html`<p class="muted">Loading your groups…</p>` : !groups.length ? html`<div class="empty card">
       <${Logo} size=${88} /><h2>No groups yet</h2>
@@ -675,6 +718,7 @@ function AccountPage() {
       ${p ? html`<span>You come with: ${[count(p.adults, "adult", "adults"), p.kids && count(p.kids, "kid", "kids"), p.friends && count(p.friends, "friend", "friends")].filter(Boolean).join(" · ")}</span>
         <span class="small muted">${s.myPhone ? `Findable by email and ${s.myPhone}` : "Add your phone number to finish your profile"}</span>` : html`<span class="muted">Not set up yet.</span>`}
       <button class="btn ghost" style="justify-self:start" onClick=${() => setEditing(true)}>${p ? "Edit profile" : "Set up profile"}</button></div>`}
+    <${InstallBanner} always=${true} />
     <div class="card stack"><h3>App</h3>
       <span class="small muted">Get the Android app for offline use on your phone, app lock and more.</span>
       <div class="row wrap"><a class="btn ghost" href="../#download">Download the Android app</a><button class="btn ghost" onClick=${toggleTheme}>Switch light / dark</button></div></div>
