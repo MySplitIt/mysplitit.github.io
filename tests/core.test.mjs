@@ -119,3 +119,21 @@ test("friends add up across groups", () => {
   assert.deepEqual(obj(ravi.totals), { INR: 200 });
   assert.equal(ravi.lines.length, 2);
 });
+
+test("per family split gives each family one share", () => {
+  const fam = [
+    { id: "f", name: "Rao family", isFamily: true, adults: 2, kids: 2, email: "" },
+    { id: "c", name: "Couple", isFamily: true, adults: 2, kids: 0, email: "" },
+    { id: "s", name: "Sam", isFamily: false, adults: 1, kids: 0, email: "" },
+  ];
+  const g = { id: "g", members: fam, expenses: [], payments: [], currency: "INR" };
+  const ones = { f: { adults: 1, kids: 0 }, c: { adults: 1, kids: 0 }, s: { adults: 1, kids: 0 } };
+  const villa = exp(900000, "s", ["f", "c", "s"], "INR", { counts: ones });
+  assert.deepEqual(obj(C.expenseShares(villa)), { f: 300000, c: 300000, s: 300000 });
+  assert.equal(C.isPerFamily(villa, g), true);
+  const perHead = { ...villa, counts: { f: { adults: 2, kids: 2 }, c: { adults: 2, kids: 0 }, s: { adults: 1, kids: 0 } } };
+  assert.equal(C.isPerFamily(perHead, g), false);
+  assert.equal(C.expenseShares(perHead).get("f"), 514286);
+  assert.equal(C.isPerFamily({ ...villa, counts: {} }, g), false);
+  assert.equal(C.isPerFamily(exp(40000, "a", ["a", "b"], "INR", { counts: { a: { adults: 1, kids: 0 }, b: { adults: 1, kids: 0 } } }), group([])), false);
+});

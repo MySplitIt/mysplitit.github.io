@@ -1,7 +1,7 @@
 // MySplitIt Web: the screens. Data and syncing live in data.js; money rules in core.js.
 import { html, render, useState, useEffect, useMemo, useRef } from "https://unpkg.com/htm@3.1.1/preact/standalone.module.js";
-import * as C from "./core.js?v=20261105b";
-import * as D from "./data.js?v=20261105b";
+import * as C from "./core.js?v=20261106a";
+import * as D from "./data.js?v=20261106a";
 import { Icon, Logo, Tile, CategoryTile, CATEGORIES, categoryStyle, expenseStyle, PAYMENT } from "./brand.js?v=20261105d";
 
 // ---------- Helpers ----------
@@ -358,7 +358,7 @@ function ExpensesTab({ g }) {
       const look = expenseStyle(e.name + " " + (e.description || ""));
       const all = e.splitAmong.length === g.members.length;
       return html`<div class="item clickable" onClick=${() => go(`group/${g.id}/expense/${e.id}`)}><${Tile} icon=${look.icon} color=${look.color} size=${44} />
-        <div class="grow"><b>${e.name}</b><div class="small muted">${name(e.paidBy)} paid · split among ${all ? "everyone" : e.splitAmong.length + " of " + g.members.length}</div>
+        <div class="grow"><b>${e.name}</b><div class="small muted">${name(e.paidBy)} paid · split among ${all ? "everyone" : e.splitAmong.length + " of " + g.members.length}${C.isPerFamily(e, g) ? " · per family" : ""}</div>
           ${e.mode === "AGE" && html`<div class="small" style="color:var(--brand-strong)">${C.formatMoney(e.adultPrice, e.currency)} per adult · ${C.formatMoney(e.kidPrice, e.currency)} per kid${C.ageSubtotal(e) !== e.amount ? ` · ${e.amount > C.ageSubtotal(e) ? "+" : "−"}${C.formatMoney(Math.abs(e.amount - C.ageSubtotal(e)), e.currency)} ${e.amount > C.ageSubtotal(e) ? "tax" : "discount"}` : ""}</div>`}
           ${e.description && html`<div class="small muted">${e.description}</div>`}</div>
         <span class="amount">${C.formatMoney(e.amount, e.currency)}<span class="small muted when">${date}</span></span></div>`;
@@ -535,12 +535,15 @@ function ExpenseForm({ g, existing }) {
   const [all, setAll] = useState(!existing || existing.splitAmong.length === ids.length);
   const [chosen, setChosen] = useState(existing ? existing.splitAmong : ids);
   const [counts, setCounts] = useState(existing ? existing.counts : {});
+  const anyFamilies = g.members.some((m) => m.adults + m.kids > 1);
+  const [perFamily, setPerFamily] = useState(existing ? C.isPerFamily(existing, g) : false);
+  const familyMode = mode === "EQUAL" && perFamily;
   const [editCounts, setEditCounts] = useState(null);
   const [confirmDel, setConfirmDel] = useState(false);
   const [showErr, setShowErr] = useState(false);
   const people = all ? ids : chosen.filter((x) => ids.includes(x));
   const countsFor = (id) => counts[id] || (() => { const m = g.members.find((x) => x.id === id); return { adults: m.adults, kids: m.kids }; })();
-  const snap = Object.fromEntries(people.map((id) => [id, countsFor(id)]));
+  const snap = Object.fromEntries(people.map((id) => [id, familyMode ? { adults: 1, kids: 0 } : countsFor(id)]));
   const adultPrice = C.parseMoney(adultText);
   const kidPrice = C.parseMoney(kidText);
   const ticketTotal = people.reduce((sum, id) => sum + snap[id].adults * (adultPrice || 0) + snap[id].kids * (kidPrice || 0), 0);
@@ -569,6 +572,11 @@ function ExpenseForm({ g, existing }) {
           : html`<label class="field grow">Per adult<input class="input" inputmode="decimal" value=${adultText} onInput=${(e) => setAdultText(e.target.value)} /></label>
                  <label class="field grow">Per kid<input class="input" inputmode="decimal" value=${kidText} onInput=${(e) => setKidText(e.target.value)} /></label>`}
       </div>
+      ${mode === "EQUAL" && anyFamilies && html`<label class="check per-family"><input type="checkbox" checked=${perFamily}
+          onChange=${(e) => { setPerFamily(e.target.checked); if (!e.target.checked) setCounts({}); }} />
+        <span><b>Split per family</b><span class="hint" style="display:block">${perFamily
+          ? "Each family or person pays one equal share, however many people it has. Good for a villa, a room or a car."
+          : "Off: split per head, so a family of 4 pays 4 shares."}</span></span></label>`}
       ${mode === "AGE" && html`<label class="field">Total paid, with tax (optional)<input class="input" inputmode="decimal" value=${paidText} onInput=${(e) => setPaidText(e.target.value)} />
         <span class="hint">${extra > 0 ? `Includes ${C.formatMoney(extra, cur)} tax & charges (${Math.round(extra * 100 / ticketTotal)}%), shared by ticket cost`
           : extra < 0 ? `${C.formatMoney(-extra, cur)} discount, shared by ticket cost` : ticketTotal > 0 ? `Tickets come to ${C.formatMoney(ticketTotal, cur)}. If the bill was more (tax, charges), enter it here` : "If the bill included tax or charges, enter the full amount here"}</span></label>`}
@@ -576,7 +584,7 @@ function ExpenseForm({ g, existing }) {
       <label class="field">Paid by<select class="input" value=${paidBy} onChange=${(e) => setPaidBy(e.target.value)}>${g.members.map((m) => html`<option value=${m.id}>${m.name}</option>`)}</select></label>
     </div>
     <div class="card stack">
-      <h3>Who's included</h3>
+      <h3>${familyMode ? "Split equally (per family) between" : "Who's included"}</h3>
       <div class="seg"><button type="button" aria-pressed=${all} onClick=${() => setAll(true)}>Everyone (${membersLabel(g)})</button>
         <button type="button" aria-pressed=${!all} onClick=${() => { setAll(false); if (all) setChosen(ids); }}>Only some</button></div>
       <div class="list">${g.members.map((m) => {
@@ -588,11 +596,14 @@ function ExpenseForm({ g, existing }) {
           <${Avatar} name=${m.name} size=${32} />
           <div class="grow"><b>${m.name}</b>
             ${inc && b != null && sh != null && sh !== b && html`<div class="small muted">${C.formatMoney(b, cur)} ${sh > b ? "+" : "−"} ${C.formatMoney(Math.abs(sh - b), cur)} ${sh > b ? "tax" : "discount"}</div>`}
-            ${inc && html`<button class="chip" onClick=${() => setEditCounts(m)}>${C.describeCounts(c)} ✎</button>`}</div>
+            ${inc && familyMode && html`<div class="small muted">${m.adults + m.kids > 1 ? "1 share for the family" : "1 share"}</div>`}
+            ${inc && !familyMode && html`<button class="chip" onClick=${() => setEditCounts(m)}>${C.describeCounts(c)} ✎</button>`}</div>
           <span class="amount">${inc ? (sh != null ? C.formatMoney(sh, cur) : "—") : html`<span class="small muted">not included</span>`}</span></div>`;
       })}</div>
       ${showErr && errors.people && html`<span class="hint error">Select at least one person</span>`}
-      ${amount > 0 && people.length > 0 && html`<p class="small" style="margin:0;color:var(--brand-strong)">${mode === "EQUAL"
+      ${amount > 0 && people.length > 0 && html`<p class="small" style="margin:0;color:var(--brand-strong)">${familyMode
+        ? `${amount % people.length === 0 ? "" : "About "}${C.formatMoney(Math.floor(amount / people.length), cur)} each · ${count(people.length, "share", "shares")} (each family counts once) · paid by ${(g.members.find((m) => m.id === paidBy) || {}).name}`
+        : mode === "EQUAL"
         ? `${amount % totalHeads === 0 ? "" : "About "}${C.formatMoney(Math.floor(amount / totalHeads), cur)} per person · ${count(totalHeads, "person", "people")} · paid by ${(g.members.find((m) => m.id === paidBy) || {}).name}`
         : `Tickets ${C.formatMoney(ticketTotal, cur)}${extra ? ` ${extra > 0 ? "+" : "−"} ${C.formatMoney(Math.abs(extra), cur)} ${extra > 0 ? "tax" : "discount"} = ${C.formatMoney(amount, cur)} paid` : ""}`}</p>`}
     </div>
