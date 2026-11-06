@@ -1,0 +1,18 @@
+{
+  "id": "/app/",
+  "name": "MySplitIt",
+  "short_name": "MySplitIt",
+  "description": "Split trip and group costs fairly, with families, kids and friends.",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f8f7",
+  "theme_color": "#00897b",
+  "categories": ["finance", "travel", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
