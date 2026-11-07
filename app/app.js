@@ -97,6 +97,7 @@ function SignIn() {
     <button class="btn google" disabled=${busy} onClick=${google}>
       <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.8 6.1C12.4 13.7 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.6 7.1-17.1z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.7 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2 1.4-4.7 2.3-8.7 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
       ${busy ? "Signing in…" : "Continue with Google"}</button>
+    ${navigator.standalone === true && html`<p class="small ios-signin">After you choose your Google account, tap <b>✕</b> at the top left of Google's window to come back to MySplitIt.</p>`}
     ${D.usesEmulator && html`<div class="stack" style="text-align:left"><label class="field">Test email (local emulator)
       <input class="input" value=${email} onInput=${(e) => setEmail(e.target.value.trim())} placeholder="alice@example.com" /></label>
       <button class="btn ghost" disabled=${!C.isEmail(email)} onClick=${() => D.signInForTesting(email.toLowerCase()).catch((e) => setMsg(e.message))}>Test sign-in</button></div>`}
@@ -723,7 +724,7 @@ function AccountPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const p = s.profile;
   return html`<div class="stack" style="max-width:640px"><div class="topbar"><h1>Account</h1></div>
-    <div class="card row"><${Avatar} name=${s.user.name} size=${48} /><div class="grow"><b>${s.user.name}</b><div class="small muted">${s.user.email}</div></div></div>
+    <div class="card row"><${Avatar} name=${(p && p.name) || s.user.name} size=${48} /><div class="grow"><b>${(p && p.name) || s.user.name}</b><div class="small muted">${s.user.email}</div></div></div>
     ${editing ? html`<${ProfileForm} onDone=${() => setEditing(false)} />` : html`<div class="card stack"><h3>Your profile</h3>
       ${p ? html`<span>You come with: ${[count(p.adults, "adult", "adults"), p.kids && count(p.kids, "kid", "kids"), p.friends && count(p.friends, "friend", "friends")].filter(Boolean).join(" · ")}</span>
         <span class="small muted">${s.myPhone ? `Findable by email and ${s.myPhone}` : "Add your phone number to finish your profile"}</span>` : html`<span class="muted">Not set up yet.</span>`}
