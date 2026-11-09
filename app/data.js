@@ -10,7 +10,7 @@ import {
   collection, doc, query, where, onSnapshot, writeBatch, getDocFromServer, arrayUnion, arrayRemove, terminate, clearIndexedDbPersistence,
   serverTimestamp, getDocsFromServer, deleteDoc, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import * as C from "./core.js?v=20261109e";
+import * as C from "./core.js?v=20261109i";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCwvtv268fZG-_kj4aaHgMa732_AckKoKw",
