@@ -1,7 +1,7 @@
 // MySplitIt Web: the screens. Data and syncing live in data.js; money rules in core.js.
 import { html, render, useState, useEffect, useMemo, useRef } from "https://unpkg.com/htm@3.1.1/preact/standalone.module.js";
-import * as C from "./core.js?v=20261106a";
-import * as D from "./data.js?v=20261106a";
+import * as C from "./core.js?v=20261109b";
+import * as D from "./data.js?v=20261109b";
 import { Icon, Logo, Tile, CategoryTile, CATEGORIES, categoryStyle, expenseStyle, PAYMENT } from "./brand.js?v=20261105d";
 
 // ---------- Helpers ----------
@@ -81,6 +81,7 @@ function CurrencySelect({ value, onChange }) {
 
 // ---------- Sign in and profile ----------
 function SignIn() {
+  const joining = !!pendingJoin();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [deleted] = useState(() => { try { const d = sessionStorage.getItem("mysplitit-deleted"); sessionStorage.removeItem("mysplitit-deleted"); return !!d; } catch (e) { return false; } });
@@ -93,7 +94,9 @@ function SignIn() {
   return html`<div class="auth"><div class="card">
     <img class="logo" src="../assets/icon.svg" alt="" />
     <h1>MySplitIt Web</h1>
-    <p class="muted" style="margin:0">Sign in to see your groups and add expenses with friends on the MySplitIt app. Everything syncs live with your phone.</p>
+    ${joining
+      ? html`<p class="banner" style="margin:0"><b>You're invited to a shared group.</b> Sign in with Google to join it.</p>`
+      : html`<p class="muted" style="margin:0">Sign in to see your groups and add expenses with friends on the MySplitIt app. Everything syncs live with your phone.</p>`}
     <button class="btn google" disabled=${busy} onClick=${google}>
       <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.8 6.1C12.4 13.7 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.6 7.1-17.1z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.7 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2 1.4-4.7 2.3-8.7 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
       ${busy ? "Signing in…" : "Continue with Google"}</button>
@@ -553,7 +556,33 @@ function ShareDialog({ g, onClose }) {
   const owner = D.isOwner(g);
   const already = g.access.includes(clean);
   const ok = C.isEmail(clean) && !already && g.access.length < C.MAX_ACCESS;
+  const [note, setNote] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const full = g.access.length >= C.MAX_ACCESS;
+  const message = (link) => `Join "${g.name}" on MySplitIt so we can split costs together: ${link}\n\nOpen the link and sign in with Google. It works in any browser, or in the MySplitIt Android app.`;
+  const copy = async () => {
+    const link = D.joinLink(g.id);
+    if (!link) return;
+    try { await navigator.clipboard.writeText(link); setNote("Link copied. Paste it in a chat or email."); }
+    catch (e) { window.prompt("Copy this link:", link); }
+  };
+  const share = async () => {
+    const link = D.joinLink(g.id);
+    if (!link) return;
+    try { await navigator.share({ title: `Join "${g.name}" on MySplitIt`, text: message(link) }); } catch (e) { /* closed */ }
+  };
   return html`<${Dialog} title="Shared with" onClose=${onClose} actions=${html`<button class="btn primary" onClick=${onClose}>Done</button>`}>
+    <div class="banner" style="margin:0"><b>Invite with a link</b>
+      <p class="small" style="margin:4px 0 8px">Anyone with the link can join this group after signing in with Google.</p>
+      ${confirmReset
+        ? html`<p class="small" style="margin:0 0 8px">Reset the link? The old link stops working. People already in the group stay in it.</p>
+          <div class="row wrap"><button class="btn text small" onClick=${() => setConfirmReset(false)}>Cancel</button>
+            <button class="btn ghost small" onClick=${() => { D.resetJoinLink(g.id); setConfirmReset(false); setNote("New link made. The old one no longer works."); }}>Reset link</button></div>`
+        : html`<div class="row wrap">${g.joinCode && html`<button class="btn text small" onClick=${() => { setConfirmReset(true); setNote(""); }}>Reset link</button>`}
+            <span class="grow"></span>
+            ${typeof navigator.share === "function" && html`<button class="btn ghost small" disabled=${full} onClick=${share}>Share…</button>`}
+            <button class="btn primary small" disabled=${full} onClick=${copy}>Copy link</button></div>`}
+      ${note && html`<p class="small" style="margin:8px 0 0;color:var(--brand-strong)">${note}</p>`}</div>
     <div class="list">${g.access.map((a) => html`<div class="item"><div class="grow"><span>${a}</span>
       <div class="small" style="color:var(--brand-strong)">${[a === s.user.email && "you", a === g.ownerEmail && "owner"].filter(Boolean).join(" · ")}</div></div>
       ${owner && a !== g.ownerEmail && html`<button class="btn text small danger" onClick=${() => D.removeAccess(g.id, a)}>Remove</button>`}</div>`)}</div>
@@ -773,17 +802,60 @@ function DeleteAccountDialog({ onClose }) {
   <//>`;
 }
 
+// ---------- Invite links ----------
+// "#/join/<group>/<code>", from mysplitit.github.io/join/. Kept for this tab while you sign in.
+const JOIN_KEY = "mysplitit-join";
+function pendingJoin() { try { return sessionStorage.getItem(JOIN_KEY); } catch (e) { return null; } }
+function setPendingJoin(v) { try { v ? sessionStorage.setItem(JOIN_KEY, v) : sessionStorage.removeItem(JOIN_KEY); } catch (e) { /* not kept */ } }
+
+function JoinPage({ gid, code }) {
+  const s = useStore();
+  const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const [msg, setMsg] = useState("");
+  const g = s.groups.get(gid);
+  const inIt = !!(g && g.access.includes(s.user.email));
+  useEffect(() => { if (inIt) { setPendingJoin(null); location.replace("#/group/" + gid); } }, [inIt]);
+  useEffect(() => { if (!waiting) return; const t = setTimeout(() => setSlow(true), 15000); return () => clearTimeout(t); }, [waiting]);
+  const later = () => { setPendingJoin(null); go("groups"); };
+  if (!C.validJoin(gid, code)) return html`<div class="empty"><p>This invite link isn't complete. Ask for the link again.</p><a href="#/groups" onClick=${() => setPendingJoin(null)}>Go to your groups</a></div>`;
+  if (inIt || waiting) return html`<div class="empty"><p>${slow ? "You're in. The group will show up in your list in a moment." : "Opening the group…"}</p>
+    ${slow && html`<a href="#/groups" onClick=${() => setPendingJoin(null)}>Go to your groups</a>`}</div>`;
+  const join = async () => {
+    setBusy(true); setMsg("");
+    const problem = await D.joinWithLink(gid, code);
+    setBusy(false);
+    if (problem) setMsg(problem); else setWaiting(true);
+  };
+  return html`<div style="max-width:440px;margin:40px auto 0"><div class="card stack">
+    <${Logo} size=${48} />
+    <h1 style="margin:0">Join this group?</h1>
+    <p class="muted" style="margin:0">Someone invited you to a shared group. You'll see its expenses and can add your own. People in the group will see your name and ${s.user.email}.</p>
+    ${msg && html`<p class="bad" style="margin:0">${msg}</p>`}
+    <div class="row"><button class="btn text" disabled=${busy} onClick=${later}>Not now</button>
+      <span class="grow"></span><button class="btn primary" disabled=${busy} onClick=${join}>${busy ? "Joining…" : "Join group"}</button></div>
+  </div></div>`;
+}
+
 // ---------- Shell ----------
 function App() {
   const s = useStore();
   const route = useRoute();
+  if (route[0] === "join" && route[1] && pendingJoin() !== route[1] + "/" + route[2]) setPendingJoin(route[1] + "/" + route[2]);
+  useEffect(() => {
+    // Back from signing in (or the profile step) somewhere else: carry on joining.
+    const p = pendingJoin();
+    if (s.user && !D.needsProfile() && p && route[0] !== "join") location.replace("#/join/" + p);
+  }, [s.user, s.profileLoaded, s.phoneLoaded, route[0]]);
   if (!s.authReady) return html`<div class="boot"><img src="../assets/icon.svg" alt="" width="56" height="56" /><p>Loading MySplitIt…</p></div>`;
   if (!s.user) return html`<${SignIn} />`;
   if (D.needsProfile()) return html`<div class="auth"><${ProfileForm} first=${true} /></div>`;
   const [page, a, b, c] = route;
   const section = page === "friends" || page === "friend" ? "friends" : page === "account" ? "account" : "groups";
   let body;
-  if (page === "group" && b === "expense") body = html`<${ExpensePage} gid=${a} eid=${c} />`;
+  if (page === "join") body = html`<${JoinPage} gid=${a} code=${b} />`;
+  else if (page === "group" && b === "expense") body = html`<${ExpensePage} gid=${a} eid=${c} />`;
   else if (page === "group") body = html`<${GroupPage} id=${a} tab=${b} sub=${c} />`;
   else if (page === "friends") body = html`<${FriendsPage} />`;
   else if (page === "friend") body = html`<${FriendPage} fkey=${a} />`;

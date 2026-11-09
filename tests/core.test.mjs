@@ -79,7 +79,7 @@ test("phone numbers match with or without country code", () => {
 test("cloud documents round-trip and bad data is cleaned up", () => {
   const g = {
     id: "g1", name: "Goa trip", category: "Trip", currency: "INR", createdAt: 5, shared: true, owner: "uid1",
-    ownerEmail: "asha@gmail.com", access: ["asha@gmail.com", "ravi@gmail.com"],
+    ownerEmail: "asha@gmail.com", access: ["asha@gmail.com", "ravi@gmail.com"], joinCode: "",
     members: [
       { id: "a", name: "Asha", isFamily: true, adults: 2, kids: 1, addedAt: 1, email: "", friends: 0, custom: false },
       { id: "r", name: "Ravi", isFamily: false, adults: 1, kids: 0, addedAt: 2, email: "ravi@gmail.com", friends: 0, custom: false },
@@ -105,6 +105,21 @@ test("cloud documents round-trip and bad data is cleaned up", () => {
   assert.equal(bad.expenses[0].amount, 0);
   assert.deepEqual(bad.expenses[0].counts, { a: { adults: 30, kids: 0 } });
   assert.equal(bad.payments.length, 0);
+});
+
+test("invite links", () => {
+  const code = C.newJoinCode();
+  assert.match(code, /^[A-Za-z0-9]{22}$/);
+  assert.notEqual(code, C.newJoinCode());
+  const gid = "0b6c1d2e-3f40-4a5b-8c6d-7e8f90a1b2c3";
+  assert.equal(C.joinUrl(gid, code), `https://mysplitit.github.io/join/#${gid}.${code}`);
+  assert.ok(C.validJoin(gid, code));
+  assert.ok(!C.validJoin(gid, "short"));
+  assert.ok(!C.validJoin("bad/id", code));
+  assert.ok(!C.validJoin(gid, code + "!"));
+  const g = C.groupFromDocs("g", { name: "Trip", currency: "INR", access: ["a@x.com"], joinCode: code }, [], [], []);
+  assert.equal(g.joinCode, code);
+  assert.equal(C.groupFromDocs("g", { name: "Trip" }, [], [], []).joinCode, "");
 });
 
 test("friends add up across groups", () => {

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Join a group · MySplitIt</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.5 system-ui, sans-serif;
+      background: #f4f7f6; color: #17302b; text-align: center; padding: 16px; box-sizing: border-box; }
+    a { color: #0b7a6c; }
+    @media (prefers-color-scheme: dark) { body { background: #0f1716; color: #e3efec; } a { color: #5fd3c0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="../assets/icon.svg" alt="" width="56" height="56">
+    <p id="msg">Opening MySplitIt…</p>
+    <p><a id="go" href="../app/">Open MySplitIt Web</a></p>
+  </main>
+  <script>
+    // Invite links look like /join/#<group>.<code>. On Android with the app installed, the app
+    // opens them directly; everywhere else this page hands the invite to MySplitIt Web.
+    var m = /^#([A-Za-z0-9-]{1,64})\.([A-Za-z0-9]{20,64})$/.exec(location.hash);
+    if (m) {
+      var to = "../app/#/join/" + m[1] + "/" + m[2];
+      document.getElementById("go").href = to;
+      location.replace(to);
+    } else {
+      document.getElementById("msg").textContent = "This invite link isn't complete. Ask for the link again.";
+    }
+  </script>
+</body>
+</html>

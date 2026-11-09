@@ -319,7 +319,22 @@ export function groupFromDocs(id, doc, members, expenses, payments) {
     members: people, expenses: exps, payments: pays, createdAt: num(doc, "createdAt"), shared: true,
     owner: str(doc, "owner", 128), ownerEmail: str(doc, "ownerEmail", 254),
     access: [...new Set(strings(doc, "access").map((a) => a.toLowerCase()))],
+    joinCode: str(doc, "joinCode", 64),
   };
+}
+
+// ---------- Invite links (same format as the Android app) ----------
+export const JOIN_URL = "https://mysplitit.github.io/join/";
+export const joinUrl = (gid, code) => `${JOIN_URL}#${gid}.${code}`;
+export const validJoin = (gid, code) => /^[A-Za-z0-9-]{1,64}$/.test(gid || "") && /^[A-Za-z0-9]{20,64}$/.test(code || "");
+/** 22 random letters and digits (about 131 bits): the secret in a join link. */
+export function newJoinCode() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const out = [];
+  while (out.length < 22) {
+    for (const n of crypto.getRandomValues(new Uint8Array(32))) if (n < 248 && out.length < 22) out.push(chars[n % 62]);
+  }
+  return out.join("");
 }
 
 export const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(16).slice(2));
