@@ -641,7 +641,11 @@ function ExpenseForm({ g, existing }) {
       <h3>${familyMode ? "Split equally (per family) between" : "Who's included"}</h3>
       <div class="seg"><button type="button" aria-pressed=${all} onClick=${() => setAll(true)}>Everyone (${membersLabel(g)})</button>
         <button type="button" aria-pressed=${!all} onClick=${() => { setAll(false); if (all) setChosen(ids); }}>Only some</button></div>
-      <div class="list">${g.members.map((m) => {
+      <div class="list">${!all && html`<label class="item select-all"><input type="checkbox" checked=${people.length === ids.length}
+          indeterminate=${people.length > 0 && people.length < ids.length} style="width:18px;height:18px;accent-color:var(--brand)"
+          onChange=${() => setChosen(people.length === ids.length ? [] : ids)} />
+        <b class="grow">Select all</b><span class="small muted">${people.length} of ${ids.length}</span></label>`}
+      ${g.members.map((m) => {
         const inc = people.includes(m.id);
         const c = countsFor(m.id);
         const b = base.get(m.id); const sh = shares.get(m.id);
