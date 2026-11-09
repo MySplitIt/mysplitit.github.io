@@ -10,7 +10,7 @@ import {
   collection, doc, query, where, onSnapshot, writeBatch, getDocFromServer, arrayUnion, arrayRemove, terminate, clearIndexedDbPersistence,
   serverTimestamp, getDocsFromServer, deleteDoc, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import * as C from "./core.js?v=20261109b";
+import * as C from "./core.js?v=20261109e";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCwvtv268fZG-_kj4aaHgMa732_AckKoKw",
@@ -505,6 +505,38 @@ export function linkMe(gid, mid) {
   const g = state.groups.get(gid);
   const m = g && g.members.find((x) => x.id === mid);
   if (m) saveMember(gid, { ...m, email: state.user.email });
+}
+
+/** Removes your Google link from a person; they stay in the group. */
+export function unlinkMember(gid, mid) {
+  const g = state.groups.get(gid);
+  const m = g && g.members.find((x) => x.id === mid);
+  if (m) saveMember(gid, { ...m, email: "" });
+}
+
+/** fromId is really the same person as intoId: moves everything over, then removes fromId. */
+export function mergeMember(gid, fromId, intoId) {
+  const g = state.groups.get(gid);
+  if (!g) return;
+  const merged = C.mergeMember(g, fromId, intoId);
+  if (merged === g) return;
+  const ops = [];
+  const into = merged.members.find((m) => m.id === intoId);
+  ops.push((b) => b.set(sub(gid, "members", intoId), C.memberDoc(into)));
+  for (const e of merged.expenses) if (!g.expenses.includes(e)) ops.push((b) => b.set(sub(gid, "expenses", e.id), C.expenseDoc(e)));
+  const kept = new Map(merged.payments.map((p) => [p.id, p]));
+  for (const p of g.payments) {
+    const n = kept.get(p.id);
+    if (!n) ops.push((b) => b.delete(sub(gid, "payments", p.id)));
+    else if (n !== p) ops.push((b) => b.set(sub(gid, "payments", p.id), C.paymentDoc(n)));
+  }
+  ops.push((b) => b.delete(sub(gid, "members", fromId)));
+  // One batch when it fits, so nobody sees half a merge.
+  for (let i = 0; i < ops.length; i += 450) {
+    const b = writeBatch(db);
+    ops.slice(i, i + 450).forEach((op) => op(b));
+    commit(b);
+  }
 }
 
 export function saveExpense(gid, e) {

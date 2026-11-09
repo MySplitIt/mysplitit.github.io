@@ -122,6 +122,36 @@ test("invite links", () => {
   assert.equal(C.groupFromDocs("g", { name: "Trip" }, [], [], []).joinCode, "");
 });
 
+test("merging someone added twice", () => {
+  const ms = [{ id: "a", name: "Asha" }, { id: "p", name: "Priya" }, { id: "m", name: "Priya (me)", email: "priya@gmail.com" }]
+    .map((m) => ({ isFamily: false, adults: 1, kids: 0, email: "", ...m }));
+  const e = (id, paidBy, among, counts = {}) => ({ ...exp(9000, paidBy, among, "INR", { counts, mode: Object.keys(counts).length ? "AGE" : "EQUAL" }), id });
+  const g = { ...group([e("e1", "a", ["a", "p"]), e("e2", "m", ["a", "m"]), e("e3", "a", ["a", "p", "m"]), e("e4", "a", ["p", "m"], { p: { adults: 1, kids: 0 }, m: { adults: 2, kids: 1 } })],
+    [{ id: "x1", from: "m", to: "a", amount: 500, currency: "INR", createdAt: 2 }, { id: "x2", from: "m", to: "p", amount: 100, currency: "INR", createdAt: 3 }]), members: ms };
+  assert.equal(C.baseName(" Priya  (me) "), "priya");
+  assert.equal(C.sameNameAs(g, "m").id, "p");
+  assert.equal(C.sameNameAs(g, "a"), null);
+  const m = C.mergeMember(g, "m", "p");
+  assert.deepEqual(m.members.map((x) => x.id), ["a", "p"]);
+  assert.equal(m.members[1].email, "priya@gmail.com");
+  assert.equal(m.expenses[1].paidBy, "p");
+  assert.deepEqual(m.expenses[2].splitAmong, ["a", "p"]);
+  assert.deepEqual(m.expenses[3].counts, { p: { adults: 2, kids: 1 } });
+  assert.deepEqual(m.payments.map((p) => [p.id, p.from]), [["x1", "p"]]);
+  assert.equal(m.expenses[0], g.expenses[0]); // untouched expenses aren't rewritten
+  assert.equal(C.mergeMember(g, "m", "m"), g);
+});
+
+test("summary text for chat apps", () => {
+  const g = { ...group([exp(40000, "a", ["a", "b", "c", "d"]), exp(30000, "b", ["b", "c", "d"])]), name: "Goa" };
+  const t = C.summaryText(g, "✈️");
+  assert.match(t, /^✈️ Goa\nTotal spent: /);
+  assert.match(t, /Expenses:\n• x: .*400 \(paid by Asha, split among 4\)/);
+  assert.match(t, /Balances:\n• Asha: gets back .*300\n/);
+  assert.match(t, /To settle up:\n• /);
+  assert.equal(C.summaryText({ ...group([]), name: "Empty" }), "Empty\nTotal spent: " + C.formatMoney(0, "INR"));
+});
+
 test("friends add up across groups", () => {
   const me = (id) => ({ id, name: "Me", isFamily: false, adults: 1, kids: 0, email: "me@x.com" });
   const p = (id, name) => ({ id, name, isFamily: false, adults: 1, kids: 0, email: "" });
