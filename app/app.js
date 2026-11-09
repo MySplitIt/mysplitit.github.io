@@ -242,9 +242,8 @@ function GroupDialog({ initial, onClose }) {
     ${!initial && html`<div class="card stack" style="background:var(--surface-2)">
       <label class="check"><input type="checkbox" checked=${addMe} onChange=${(e) => setAddMe(e.target.checked)} /> Add me to this group</label>
       ${addMe && html`<label class="field">Your name in this group<input class="input" value=${myName} onInput=${(e) => setMyName(e.target.value)} /></label>
-        <div class="field" role="radiogroup" aria-label="Coming as">Coming as
-          <label class="check"><input type="radio" name="coming-as" checked=${!family} onChange=${() => setFamily(false)} /> Single <span class="muted" style="font-weight:400">Just me</span></label>
-          <label class="check"><input type="radio" name="coming-as" checked=${family} onChange=${() => setFamily(true)} /> Family <span class="muted" style="font-weight:400">Me with my family</span></label></div>
+        <div class="field">Coming as
+          <div class="seg seg-full" role="group" aria-label="Coming as"><button type="button" aria-pressed=${!family} onClick=${() => setFamily(false)}>Single</button><button type="button" aria-pressed=${family} onClick=${() => setFamily(true)}>Family</button></div></div>
         ${family && html`<${Stepper} label="Adults (including you)" value=${adults} min=${kids === 0 ? 2 : 1} onChange=${setAdults} />
           <${Stepper} label="Kids" value=${kids} min=${adults === 1 ? 1 : 0} onChange=${setKids} />
           <span class="hint">${profileFamily && adults === pa && kids === pk ? "From your profile. " : ""}Equal splits count ${adults + kids} people.</span>`}`}
@@ -360,6 +359,8 @@ function GroupPage({ id, tab, sub }) {
   const [shareMenu, setShareMenu] = useState(false);
   const [dialog, setDialog] = useState(sub === "add" ? "add" : null);
   useEffect(() => { if (sub === "add") { setDialog("add"); history.replaceState(null, "", `#/group/${id}/people`); } }, [sub]);
+  // "joined" only opens "Which one is you?" once; keep it out of the address.
+  useEffect(() => { if (sub === "joined") history.replaceState(null, "", `#/group/${id}/expenses`); }, [sub]);
   if (!g) return html`<div class="empty"><p>${s.status === "syncing" ? "Loading group…" : "This group isn't available. It may have been deleted, or you no longer have access."}</p><a href="#/groups">Back to groups</a></div>`;
   const me = C.meIn(g, s.user.email);
   const owner = D.isOwner(g);
@@ -382,7 +383,7 @@ function GroupPage({ id, tab, sub }) {
           <button class="btn text danger" style="justify-content:flex-start" onClick=${() => { setMenu(false); setDialog("delete"); }}>${owner ? "Delete for everyone" : "Leave group"}</button>
         </div>`}</div>
     </div>
-    ${!me && html`<${WhoAmI} g=${g} />`}
+    ${!me && html`<${WhoAmI} g=${g} openAtStart=${sub === "joined"} />`}
     ${me && C.sameNameAs(g, me) && html`<${SameName} g=${g} me=${me} twin=${C.sameNameAs(g, me)} />`}
     <nav class="tabs">
       ${[["expenses", "Expenses"], ["balances", "Balances"], ["people", "People"]].map(([k, l]) => html`<a href=${`#/group/${id}/${k}`} class=${t === k ? "active" : ""}>${l}</a>`)}
@@ -404,20 +405,25 @@ function GroupPage({ id, tab, sub }) {
   </div>`;
 }
 
-function WhoAmI({ g }) {
+function WhoAmI({ g, openAtStart }) {
   const s = D.state;
-  const [picking, setPicking] = useState(false);
+  const free = g.members.filter((m) => !m.email);
+  // Right after joining with a link, the list opens by itself.
+  const [picking, setPicking] = useState(!!openAtStart && free.length > 0);
   const [hidden, setHidden] = useState(false);
   if (hidden) return null;
-  const free = g.members.filter((m) => !m.email);
+  const me = s.profile || { name: s.user.name, email: s.user.email, adults: 1, kids: 0, friends: 0 };
+  const addNew = () => D.addProfileToGroup(g.id, me);
   return html`<div class="banner"><b>Which one is you?</b>
     <p class="small" style="margin:4px 0 8px">Link yourself so you're picked as the payer by default and the Friends tab knows your share.</p>
     <div class="row wrap"><button class="btn text small" onClick=${() => setHidden(true)}>Later</button>
-      ${free.length > 0 && html`<button class="btn ghost small" onClick=${() => setPicking(true)}>I'm in the list</button>`}
-      <button class="btn primary small" onClick=${() => D.addProfileToGroup(g.id, s.profile || { name: s.user.name, email: s.user.email, adults: 1, kids: 0, friends: 0 })}>Add me</button></div>
+      <button class="btn primary small" onClick=${() => (free.length ? setPicking(true) : addNew())}>Add me</button></div>
     ${picking && html`<${Dialog} title="Which one is you?" onClose=${() => setPicking(false)} actions=${html`<button class="btn text" onClick=${() => setPicking(false)}>Cancel</button>`}>
+      <p class="small muted" style="margin:0">If someone already added you, pick your name. Otherwise add yourself as new.</p>
       <div class="list">${free.map((m) => html`<div class="item clickable" onClick=${() => { D.linkMe(g.id, m.id); setPicking(false); }}>
-        <${Avatar} name=${m.name} /><div class="grow"><b>${m.name}</b><div class="small muted">${describeMember(m)}</div></div></div>`)}</div></${Dialog}>`}
+        <${Avatar} name=${m.name} /><div class="grow"><b>${m.name}</b><div class="small muted">${describeMember(m)}</div></div></div>`)}
+        <div class="item clickable" onClick=${() => { addNew(); setPicking(false); }}>
+          <span class="add-new">+</span><div class="grow"><b style="color:var(--brand-strong)">Not in the list? Add me as new</b><div class="small muted">Adds you as "${me.name}"</div></div></div></div></${Dialog}>`}
   </div>`;
 }
 
@@ -906,7 +912,7 @@ function JoinPage({ gid, code }) {
   const [msg, setMsg] = useState("");
   const g = s.groups.get(gid);
   const inIt = !!(g && g.access.includes(s.user.email));
-  useEffect(() => { if (inIt) { setPendingJoin(null); location.replace("#/group/" + gid); } }, [inIt]);
+  useEffect(() => { if (inIt) { setPendingJoin(null); location.replace("#/group/" + gid + "/expenses/joined"); } }, [inIt]);
   useEffect(() => { if (!waiting) return; const t = setTimeout(() => setSlow(true), 15000); return () => clearTimeout(t); }, [waiting]);
   const later = () => { setPendingJoin(null); go("groups"); };
   if (!C.validJoin(gid, code)) return html`<div class="empty"><p>This invite link isn't complete. Ask for the link again.</p><a href="#/groups" onClick=${() => setPendingJoin(null)}>Go to your groups</a></div>`;
