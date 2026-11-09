@@ -152,6 +152,47 @@ test("summary text for chat apps", () => {
   assert.equal(C.summaryText({ ...group([]), name: "Empty" }), "Empty\nTotal spent: " + C.formatMoney(0, "INR"));
 });
 
+test("group type from its name (same cases as Android)", () => {
+  const cases = {
+    "Goa trip": "Trip",
+    "Goa": "Trip",
+    "": "Trip",
+    "Kerala 2026": "Trip",
+    "Weekend away in Coorg": "Trip",
+    "Manali trek": "Trip",
+    "Road trip to Ooty": "Road trip",
+    "Bike ride": "Road trip",
+    "Car rental": "Road trip",
+    "Beach getaway": "Holiday",
+    "Maldives honeymoon": "Holiday",
+    "Bali vacation": "Holiday",
+    "Diwali party": "Event",
+    "Anu's birthday": "Event",
+    "Ravi's B'day": "Event",
+    "Birthdays 2026": "Event",
+    "House warming party": "Event",
+    "Housewarming": "Event",
+    "Priya's wedding sangeet": "Event",
+    "Sunday cricket": "Sports",
+    "Badminton court": "Sports",
+    "Flatmates rent": "Home",
+    "Flatmate rent": "Home",
+    "Flat 4B": "Home",
+    "Roommates electricity bill": "Home",
+    "Wifi and maintenance": "Home",
+    "Office lunch": "Work",
+    "Team lunch": "Work",
+    "Hackathon": "Work",
+    "Friday dinner": "Outing",
+    "Movie night": "Outing",
+    "Coffee with college friends": "Outing",
+    "Goa dinner": "Outing",
+    "Partyland": "Trip",
+    "Carnival": "Trip"
+  };
+  for (const [name, type] of Object.entries(cases)) assert.equal(C.guessCategory(name), type, name);
+});
+
 test("friends add up across groups", () => {
   const me = (id) => ({ id, name: "Me", isFamily: false, adults: 1, kids: 0, email: "me@x.com" });
   const p = (id, name) => ({ id, name, isFamily: false, adults: 1, kids: 0, email: "" });

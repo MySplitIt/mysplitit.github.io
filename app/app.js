@@ -1,7 +1,7 @@
 // MySplitIt Web: the screens. Data and syncing live in data.js; money rules in core.js.
 import { html, render, useState, useEffect, useMemo, useRef } from "https://unpkg.com/htm@3.1.1/preact/standalone.module.js";
-import * as C from "./core.js?v=20261109e";
-import * as D from "./data.js?v=20261109e";
+import * as C from "./core.js?v=20261109i";
+import * as D from "./data.js?v=20261109i";
 import { Icon, Logo, Tile, CategoryTile, CATEGORIES, categoryStyle, expenseStyle, PAYMENT } from "./brand.js?v=20261105d";
 
 // ---------- Helpers ----------
@@ -203,6 +203,11 @@ function GroupDialog({ initial, onClose }) {
   const p = s.profile;
   const [name, setName] = useState(initial ? initial.name : "");
   const [category, setCategory] = useState(initial ? initial.category : "Trip");
+  // New groups get their type from the name until you pick one yourself.
+  const [typeByHand, setTypeByHand] = useState(!!initial);
+  const [showTypes, setShowTypes] = useState(false);
+  const onName = (v) => { setName(v); if (!typeByHand) setCategory(C.guessCategory(v)); };
+  const cs = categoryStyle(category);
   const [currency, setCurrency] = useState(initial ? initial.currency : (navigator.language === "en-IN" ? "INR" : "USD"));
   const [addMe, setAddMe] = useState(true);
   const [myName, setMyName] = useState(p ? p.name : s.user.name);
@@ -225,10 +230,14 @@ function GroupDialog({ initial, onClose }) {
   };
   return html`<${Dialog} title=${initial ? "Edit group" : "New group"} onClose=${onClose}
     actions=${html`<button class="btn text" onClick=${onClose}>Cancel</button><button class="btn primary" disabled=${!ok} onClick=${save}>${initial ? "Save" : "Create"}</button>`}>
-    <label class="field">Group name<input class="input ${duplicate ? "error" : ""}" value=${name} maxlength="100" placeholder="e.g. Florida trip" onInput=${(e) => setName(e.target.value)} autofocus />
-      ${duplicate && html`<span class="hint error">You already have a group with this name. Pick a different name.</span>`}</label>
-    <div class="field">Type<div class="cat-grid" role="radiogroup">${CATEGORIES.map((c) => html`<button type="button" role="radio" class="cat" aria-checked=${category === c.name}
-      style=${`--c:${c.color}`} onClick=${() => setCategory(c.name)}><${Tile} icon=${c.icon} color=${c.color} size=${36} /><span>${c.name}</span></button>`)}</div></div>
+    <div class="field"><label for="group-name">Group name</label>
+      <div class="row"><button type="button" class="type-btn" aria-label=${`Type: ${category}. Change type`} aria-expanded=${showTypes} onClick=${() => setShowTypes(!showTypes)}>
+          <${Tile} icon=${cs.icon} color=${cs.color} size=${40} /></button>
+        <input id="group-name" class="input grow ${duplicate ? "error" : ""}" value=${name} maxlength="100" placeholder="e.g. Florida trip" onInput=${(e) => onName(e.target.value)} autofocus /></div>
+      ${duplicate && html`<span class="hint error">You already have a group with this name. Pick a different name.</span>`}
+      <span class="hint">Type: <b>${category}</b>${typeByHand ? "" : name.trim() ? " (picked from the name)" : " (picked from the name as you type)"}. Click the icon to change it.</span></div>
+    ${showTypes && html`<div class="cat-grid" role="radiogroup" aria-label="Type">${CATEGORIES.map((c) => html`<button type="button" role="radio" class="cat" aria-checked=${category === c.name}
+      style=${`--c:${c.color}`} onClick=${() => { setCategory(c.name); setTypeByHand(true); setShowTypes(false); }}><${Tile} icon=${c.icon} color=${c.color} size=${36} /><span>${c.name}</span></button>`)}</div>`}
     <label class="field">Default currency<${CurrencySelect} value=${currency} onChange=${setCurrency} /><span class="hint">Each expense can still use its own currency.</span></label>
     ${!initial && html`<div class="card stack" style="background:var(--surface-2)">
       <label class="check"><input type="checkbox" checked=${addMe} onChange=${(e) => setAddMe(e.target.checked)} /> Add me to this group</label>

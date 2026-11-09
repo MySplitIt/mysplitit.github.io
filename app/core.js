@@ -320,6 +320,34 @@ export function describeCounts(c) {
   return `${n(c.adults, "adult", "adults")} · ${n(c.kids, "kid", "kids")}`;
 }
 
+// Picks a group type from its name, so you don't have to: "Diwali party" -> Event,
+// "Flatmates rent" -> Home. Each type scores a point per matching word (plurals like
+// "flatmates" count, two-word phrases like "road trip" count double); the highest score
+// wins, ties go to the type listed first, and no match at all means Trip ("Goa").
+// Same words and scoring as the Android app (GroupTypes.kt).
+const TYPE_RULES = [
+  ["Road trip", ["road trip", "roadtrip", "road", "drive", "ride", "bike", "car", "car rental", "convoy", "self drive", "petrol", "fuel", "toll"]],
+  ["Holiday", ["holiday", "vacation", "vacay", "beach", "resort", "honeymoon", "getaway", "cruise", "staycation", "island", "retreat", "spa", "villa"]],
+  ["Event", ["birthday", "bday", "wedding", "party", "anniversary", "festival", "diwali", "holi", "christmas", "xmas", "eid", "new year", "celebration", "reunion", "baby shower", "shower", "puja", "pooja", "function", "engagement", "farewell", "housewarming", "house warming", "graduation", "sangeet", "mehendi", "haldi", "reception", "ceremony", "get together", "gettogether"]],
+  ["Sports", ["cricket", "football", "soccer", "badminton", "tennis", "gym", "sport", "match", "cycling", "marathon", "golf", "turf", "futsal", "basketball", "volleyball", "swimming", "yoga", "league", "tournament", "pickleball", "squash", "run", "running", "climbing", "skiing", "surfing", "bowling alley"]],
+  ["Home", ["home", "flat", "flatmate", "apartment", "house", "rent", "roommate", "roomie", "hostel", "pg", "utility", "utilities", "grocery", "groceries", "bill", "household", "society", "maid", "electricity", "wifi", "internet", "water", "gas", "maintenance", "cook", "cleaning", "kitchen", "mess", "dorm", "furniture", "deposit"]],
+  ["Work", ["office", "work", "team", "project", "client", "conference", "offsite", "colleague", "startup", "company", "hackathon", "training", "business", "meeting", "workshop", "standup"]],
+  ["Outing", ["dinner", "lunch", "breakfast", "brunch", "movie", "outing", "restaurant", "cafe", "drink", "picnic", "food", "pizza", "bar", "pub", "night out", "concert", "shopping", "coffee", "tea", "snack", "ice cream", "bowling", "karaoke", "club", "beer", "biryani", "buffet", "hangout", "date night", "potluck", "brewery"]],
+  ["Trip", ["trip", "travel", "tour", "trek", "trekking", "journey", "flight", "visit", "camping", "safari", "pilgrimage", "hike", "hiking", "backpacking", "expedition", "abroad", "weekend away"]],
+];
+export function guessCategory(name) {
+  const clean = (name || "").toLowerCase().replace(/['\u2019]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  if (!clean) return "Trip";
+  const text = " " + clean + " ", tokens = new Set(clean.split(" "));
+  const hit = (w) => (w.includes(" ") ? (text.includes(" " + w + " ") ? 2 : 0) : tokens.has(w) || tokens.has(w + "s") || tokens.has(w + "es") ? 1 : 0);
+  let best = "Trip", bestScore = 0;
+  for (const [type, words] of TYPE_RULES) {
+    const score = words.reduce((n, w) => n + hit(w), 0);
+    if (score > bestScore) { best = type; bestScore = score; }
+  }
+  return best;
+}
+
 export const sameGroupName = (a, b) => a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
 
 // ---------- Cloud documents (same shape as the Android app) ----------
