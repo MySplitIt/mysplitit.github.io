@@ -8,9 +8,9 @@ import {
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, connectFirestoreEmulator,
   collection, doc, query, where, onSnapshot, writeBatch, getDocFromServer, arrayUnion, arrayRemove, terminate, clearIndexedDbPersistence,
-  serverTimestamp, getDocsFromServer, deleteDoc,
+  serverTimestamp, getDocsFromServer, deleteDoc, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import * as C from "./core.js?v=20261106a";
+import * as C from "./core.js?v=20261109b";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCwvtv268fZG-_kj4aaHgMa732_AckKoKw",
@@ -121,7 +121,7 @@ export async function deleteAccount() {
     for (const g of groups.docs) {
       if (g.data().owner === u.uid) {
         const refs = [];
-        for (const part of ["members", "expenses", "payments"]) {
+        for (const part of ["members", "expenses", "payments", "joins"]) {
           (await getDocsFromServer(collection(g.ref, part))).docs.forEach((d) => refs.push(d.ref));
         }
         await commitAll(refs.map((r) => (b) => b.delete(r)));
@@ -562,16 +562,71 @@ export function deleteForEveryone(gid) {
     ...g.payments.map((p) => sub(gid, "payments", p.id)),
   ];
   const w = watches.get(gid); if (w) { w.stop(); watches.delete(gid); }
-  for (let i = 0; i < ops.length; i += 400) {
-    const b = writeBatch(db);
-    ops.slice(i, i + 400).forEach((r) => b.delete(r));
-    commit(b);
-  }
-  const b = writeBatch(db);
-  b.delete(groupRef(gid));
-  commit(b);
   state.groups.delete(gid);
   changed();
+  // Records of who joined with the link go too, before the group itself.
+  const finish = (joins) => {
+    const all = [...ops, ...joins];
+    for (let i = 0; i < all.length; i += 400) {
+      const b = writeBatch(db);
+      all.slice(i, i + 400).forEach((r) => b.delete(r));
+      commit(b);
+    }
+    const b = writeBatch(db);
+    b.delete(groupRef(gid));
+    commit(b);
+  };
+  getDocs(collection(db, "groups", gid, "joins")).then((s) => finish(s.docs.map((d) => d.ref)), () => finish([]));
+}
+
+// ---------- Invite links ----------
+function setJoinCode(gid) {
+  const g = state.groups.get(gid);
+  const code = C.newJoinCode();
+  state.groups.set(gid, { ...g, joinCode: code });
+  changed();
+  const b = writeBatch(db);
+  b.update(groupRef(gid), { joinCode: code });
+  commit(b);
+  return code;
+}
+
+/** The link anyone can use to join a group. Makes one the first time. */
+export function joinLink(gid) {
+  const g = state.groups.get(gid);
+  if (!g || !state.user) return null;
+  return C.joinUrl(gid, g.joinCode || setJoinCode(gid));
+}
+
+/** Makes a new join link. The old one stops working. */
+export function resetJoinLink(gid) {
+  if (state.groups.get(gid) && state.user) setJoinCode(gid);
+}
+
+/**
+ * Joins a group with its link: adds you to the group's access and, in the same batch, writes
+ * the code as proof (the rules check it). Returns a message if it didn't work, or null.
+ */
+export async function joinWithLink(gid, code) {
+  const u = state.user;
+  if (!u) return "Sign in first.";
+  const g = state.groups.get(gid);
+  if (g && g.access.includes(u.email)) return null;
+  const b = writeBatch(db);
+  b.update(groupRef(gid), { access: arrayUnion(u.email) });
+  b.set(doc(db, "groups", gid, "joins", u.uid), { code, at: serverTimestamp() });
+  try {
+    await Promise.race([b.commit(), new Promise((_, no) => setTimeout(() => no({ code: "timeout" }), 20000))]);
+    return null;
+  } catch (e) {
+    if (e && e.code === "not-found") return "This group doesn't exist any more.";
+    if (e && e.code === "permission-denied") {
+      // Refused if you're already in it, or if the link is old.
+      try { await getDocFromServer(groupRef(gid)); return null; } catch (_) { return "This invite link doesn't work any more. Ask for a new one."; }
+    }
+    console.warn("MySplitIt: could not join", e);
+    return "Couldn't join. Check your internet connection and try again.";
+  }
 }
 
 export const isOwner = (g) => state.user && g.owner === state.user.uid;
