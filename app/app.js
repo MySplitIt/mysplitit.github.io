@@ -1,7 +1,7 @@
 // MySplitIt Web: the screens. Data and syncing live in data.js; money rules in core.js.
 import { html, render, useState, useEffect, useMemo, useRef } from "https://unpkg.com/htm@3.1.1/preact/standalone.module.js";
-import * as C from "./core.js?v=20261109b";
-import * as D from "./data.js?v=20261109b";
+import * as C from "./core.js?v=20261109e";
+import * as D from "./data.js?v=20261109e";
 import { Icon, Logo, Tile, CategoryTile, CATEGORIES, categoryStyle, expenseStyle, PAYMENT } from "./brand.js?v=20261105d";
 
 // ---------- Helpers ----------
@@ -206,16 +206,19 @@ function GroupDialog({ initial, onClose }) {
   const [currency, setCurrency] = useState(initial ? initial.currency : (navigator.language === "en-IN" ? "INR" : "USD"));
   const [addMe, setAddMe] = useState(true);
   const [myName, setMyName] = useState(p ? p.name : s.user.name);
-  const [useProfile, setUseProfile] = useState(!!p);
-  const [adults, setAdults] = useState(p ? p.adults + p.friends : 1);
-  const [kids, setKids] = useState(p ? p.kids : 0);
+  // Single or family; a family starts from your profile, or 2 adults if it has no family.
+  const pa = p ? p.adults + p.friends : 1, pk = p ? p.kids : 0;
+  const profileFamily = !!p && pa + pk > 1;
+  const [family, setFamily] = useState(profileFamily);
+  const [adults, setAdults] = useState(profileFamily ? pa : 2);
+  const [kids, setKids] = useState(profileFamily ? pk : 0);
   const duplicate = name.trim() && [...s.groups.values()].some((g) => g.id !== (initial && initial.id) && C.sameGroupName(g.name, name));
   const ok = name.trim() && !duplicate && (initial || !addMe || myName.trim());
   const save = () => {
     if (initial) { D.editGroup(initial.id, { name: name.trim(), category, currency }); onClose(); return; }
-    const me = addMe ? (p && useProfile
-      ? { name: myName.trim(), adults: p.adults + p.friends, kids: p.kids, fromProfile: true }
-      : { name: myName.trim(), adults, kids, fromProfile: false }) : null;
+    const [a, k] = family ? [adults, kids] : [1, 0];
+    // Same as your profile: keep following it. Otherwise these numbers stay as picked.
+    const me = addMe ? { name: myName.trim(), adults: a, kids: k, fromProfile: !!p && a === pa && k === pk } : null;
     const id = D.createGroup({ name: name.trim(), category, currency, me });
     onClose();
     go(`group/${id}/people/add`);
@@ -230,9 +233,12 @@ function GroupDialog({ initial, onClose }) {
     ${!initial && html`<div class="card stack" style="background:var(--surface-2)">
       <label class="check"><input type="checkbox" checked=${addMe} onChange=${(e) => setAddMe(e.target.checked)} /> Add me to this group</label>
       ${addMe && html`<label class="field">Your name in this group<input class="input" value=${myName} onInput=${(e) => setMyName(e.target.value)} /></label>
-        ${p && html`<label class="check"><input type="checkbox" checked=${useProfile} onChange=${(e) => setUseProfile(e.target.checked)} />
-          Bring my family from my profile <span class="muted">(${C.describeCounts({ adults: p.adults + p.friends, kids: p.kids })})</span></label>`}
-        ${(!p || !useProfile) && html`<${Stepper} label="Adults (including you)" value=${adults} min=${1} onChange=${setAdults} /><${Stepper} label="Kids" value=${kids} min=${0} onChange=${setKids} />`}`}
+        <div class="field" role="radiogroup" aria-label="Coming as">Coming as
+          <label class="check"><input type="radio" name="coming-as" checked=${!family} onChange=${() => setFamily(false)} /> Single <span class="muted" style="font-weight:400">Just me</span></label>
+          <label class="check"><input type="radio" name="coming-as" checked=${family} onChange=${() => setFamily(true)} /> Family <span class="muted" style="font-weight:400">Me with my family</span></label></div>
+        ${family && html`<${Stepper} label="Adults (including you)" value=${adults} min=${kids === 0 ? 2 : 1} onChange=${setAdults} />
+          <${Stepper} label="Kids" value=${kids} min=${adults === 1 ? 1 : 0} onChange=${setKids} />
+          <span class="hint">${profileFamily && adults === pa && kids === pk ? "From your profile. " : ""}Equal splits count ${adults + kids} people.</span>`}`}
     </div>`}
   </${Dialog}>`;
 }
@@ -342,6 +348,7 @@ function GroupPage({ id, tab, sub }) {
   const s = useStore();
   const g = s.groups.get(id);
   const [menu, setMenu] = useState(false);
+  const [shareMenu, setShareMenu] = useState(false);
   const [dialog, setDialog] = useState(sub === "add" ? "add" : null);
   useEffect(() => { if (sub === "add") { setDialog("add"); history.replaceState(null, "", `#/group/${id}/people`); } }, [sub]);
   if (!g) return html`<div class="empty"><p>${s.status === "syncing" ? "Loading group…" : "This group isn't available. It may have been deleted, or you no longer have access."}</p><a href="#/groups">Back to groups</a></div>`;
@@ -354,8 +361,12 @@ function GroupPage({ id, tab, sub }) {
       <${CategoryTile} category=${g.category} size=${44} />
       <div class="grow"><h1 class="ellipsis">${g.name}</h1>
         <div class="small muted">${membersLabel(g)} · shared with ${g.access.length}</div></div>
-      <button class="btn ghost small" onClick=${() => setDialog("share")}>Share</button>
-      <div style="position:relative"><button class="icon-btn" aria-label="More" onClick=${() => setMenu(!menu)}>${ICON.more}</button>
+      <div style="position:relative"><button class="btn ghost small" aria-haspopup="menu" aria-expanded=${shareMenu} onClick=${() => { setShareMenu(!shareMenu); setMenu(false); }}>Share</button>
+        ${shareMenu && html`<div class="card" role="menu" style="position:absolute;right:0;top:44px;z-index:10;display:grid;padding:6px;min-width:200px;box-shadow:var(--shadow)">
+          <button class="btn text" role="menuitem" style="justify-content:flex-start" onClick=${() => { setShareMenu(false); setDialog("share"); }}>Invite link</button>
+          <button class="btn text" role="menuitem" style="justify-content:flex-start" onClick=${() => { setShareMenu(false); setDialog("summary"); }}>Summary as text</button>
+        </div>`}</div>
+      <div style="position:relative"><button class="icon-btn" aria-label="More" onClick=${() => { setMenu(!menu); setShareMenu(false); }}>${ICON.more}</button>
         ${menu && html`<div class="card" style="position:absolute;right:0;top:44px;z-index:10;display:grid;padding:6px;min-width:190px;box-shadow:var(--shadow)">
           <button class="btn text" style="justify-content:flex-start" onClick=${() => { setMenu(false); setDialog("edit"); }}>Edit group</button>
           <button class="btn text" style="justify-content:flex-start" onClick=${() => { setMenu(false); setDialog("share"); }}>Shared with…</button>
@@ -363,17 +374,19 @@ function GroupPage({ id, tab, sub }) {
         </div>`}</div>
     </div>
     ${!me && html`<${WhoAmI} g=${g} />`}
+    ${me && C.sameNameAs(g, me) && html`<${SameName} g=${g} me=${me} twin=${C.sameNameAs(g, me)} />`}
     <nav class="tabs">
       ${[["expenses", "Expenses"], ["balances", "Balances"], ["people", "People"]].map(([k, l]) => html`<a href=${`#/group/${id}/${k}`} class=${t === k ? "active" : ""}>${l}</a>`)}
     </nav>
     ${t === "expenses" && html`<${ExpensesTab} g=${g} />`}
-    ${t === "balances" && html`<${BalancesTab} g=${g} />`}
+    ${t === "balances" && html`<${BalancesTab} g=${g} onSummary=${() => setDialog("summary")} />`}
     ${t === "people" && html`<${PeopleTab} g=${g} onAdd=${() => setDialog("add")} />`}
     <div class="fab">${t === "people"
       ? html`<button class="btn primary" onClick=${() => setDialog("add")}>+ Add people</button>`
       : html`<button class="btn primary" disabled=${!g.members.length} onClick=${() => go(`group/${id}/expense/new`)}>+ Add expense</button>`}</div>
     ${dialog === "edit" && html`<${GroupDialog} initial=${g} onClose=${() => setDialog(null)} />`}
     ${dialog === "share" && html`<${ShareDialog} g=${g} onClose=${() => setDialog(null)} />`}
+    ${dialog === "summary" && html`<${SummaryDialog} g=${g} onClose=${() => setDialog(null)} />`}
     ${dialog === "add" && html`<${AddPeople} g=${g} onClose=${() => setDialog(null)} />`}
     ${dialog === "delete" && html`<${Confirm} title=${owner ? `Delete "${g.name}" for everyone?` : `Leave "${g.name}"?`}
       message=${owner ? "The group and all its expenses will be removed from every phone and browser it's shared with. This can't be undone."
@@ -399,6 +412,51 @@ function WhoAmI({ g }) {
   </div>`;
 }
 
+/** "Priya (me)" and "Priya" in the same group: offers to merge them. "Not me" is remembered in this browser. */
+function SameName({ g, me, twin }) {
+  const key = `mysplitit-notme:${g.id}:${twin.id}`;
+  const [hidden, setHidden] = useState(() => { try { return !!localStorage.getItem(key); } catch (e) { return false; } });
+  const [confirm, setConfirm] = useState(false);
+  const mine = g.members.find((m) => m.id === me);
+  if (hidden || !mine) return null;
+  const notMe = () => { try { localStorage.setItem(key, "1"); } catch (e) { /* this time only */ } setHidden(true); };
+  return html`<div class="banner"><b>Is "${twin.name}" you too?</b>
+    <p class="small" style="margin:4px 0 8px">You're "${mine.name}" in this group, and "${twin.name}" was already in the list. If that's you, merge them.</p>
+    <div class="row wrap"><button class="btn text small" onClick=${notMe}>Not me</button>
+      <button class="btn primary small" onClick=${() => setConfirm(true)}>Merge</button></div>
+    ${confirm && html`<${Confirm} title=${`Merge into "${twin.name}"?`} message=${mergeMessage(g, mine, twin)} label="Merge"
+      onYes=${() => D.mergeMember(g.id, mine.id, twin.id)} onClose=${() => setConfirm(false)} />`}
+  </div>`;
+}
+
+function mergeMessage(g, from, into) {
+  const n = C.involvementCount(g, from.id);
+  const moved = n ? `${n} ${n === 1 ? "expense or payment moves" : "expenses and payments move"} from "${from.name}" to "${into.name}". ` : "";
+  return `${moved}"${from.name}" is removed, and you're linked to "${into.name}".`;
+}
+
+/** Pick the right person, then say whether the one you were linked to is someone else or also you. */
+function ChangeMe({ g, current, onClose }) {
+  const [picked, setPicked] = useState(null);
+  const others = g.members.filter((m) => m.id !== current.id && !m.email);
+  if (!picked) return html`<${Dialog} title="Which one is you?" onClose=${onClose} actions=${html`<button class="btn text" onClick=${onClose}>Cancel</button>`}>
+    <p class="small muted" style="margin:0">You're linked to "${current.name}". Pick the right person.</p>
+    <div class="list">${others.map((m) => html`<div class="item clickable" onClick=${() => setPicked(m)}>
+      <${Avatar} name=${m.name} /><div class="grow"><b>${m.name}</b><div class="small muted">${describeMember(m)}</div></div></div>`)}
+      <div class="item clickable" onClick=${() => { D.unlinkMember(g.id, current.id); onClose(); }}>
+        <div class="grow"><b>None of these</b><div class="small muted">Unlink me from "${current.name}"</div></div></div></div>
+  </${Dialog}>`;
+  const n = C.involvementCount(g, current.id);
+  return html`<${Dialog} title=${`Who is "${current.name}"?`} onClose=${onClose} actions=${html`<button class="btn text" onClick=${() => setPicked(null)}>Back</button>`}>
+    <div class="list">
+      <div class="item clickable" onClick=${() => { D.linkMe(g.id, picked.id); onClose(); }}>
+        <div class="grow"><b>Someone else</b><div class="small muted">Keep "${current.name}" as a separate person, and link you to "${picked.name}".</div></div></div>
+      <div class="item clickable" onClick=${() => { D.mergeMember(g.id, current.id, picked.id); onClose(); }}>
+        <div class="grow"><b>Also me (added twice)</b><div class="small muted">${n ? `Move ${n} ${n === 1 ? "expense or payment" : "expenses and payments"} to "${picked.name}", then remove` : "Remove"} "${current.name}" and link you to "${picked.name}".</div></div></div>
+    </div>
+  </${Dialog}>`;
+}
+
 function ExpensesTab({ g }) {
   const items = [...g.expenses.map((e) => ({ t: e.createdAt, e })), ...g.payments.map((p) => ({ t: p.createdAt, p }))].sort((a, b) => b.t - a.t);
   if (!g.members.length) return html`<div class="empty card"><div class="big">👥</div><p>Add people first, then add expenses.</p></div>`;
@@ -422,7 +480,7 @@ function ExpensesTab({ g }) {
     })}</div></div>`;
 }
 
-function BalancesTab({ g }) {
+function BalancesTab({ g, onSummary }) {
   const [settle, setSettle] = useState(null);
   const curs = C.currenciesUsed(g);
   const name = (id) => (g.members.find((m) => m.id === id) || { name: "Someone" }).name;
@@ -438,9 +496,29 @@ function BalancesTab({ g }) {
           <div class="grow"><span class="small muted">${name(x.from)} pays ${name(x.to)}</span><b style="display:block">${C.formatMoney(x.amount, cur)}</b></div><button class="btn ghost small" onClick=${() => setSettle(x)}>Mark paid</button></div>`)}</div>`}
       </div>`;
     })}
-    ${g.members.length >= 2 && html`<button class="btn ghost" style="justify-self:start" onClick=${() => setSettle({})}>Record a payment</button>`}
+    <div class="row wrap">${g.members.length >= 2 && html`<button class="btn ghost" onClick=${() => setSettle({})}>Record a payment</button>`}
+      <button class="btn ghost" onClick=${onSummary}>Share summary</button></div>
     ${settle && html`<${SettleDialog} g=${g} prefill=${settle} onClose=${() => setSettle(null)} />`}
   </div>`;
+}
+
+/** The group as text, ready for WhatsApp or any chat app. Nothing is sent automatically. */
+function SummaryDialog({ g, onClose }) {
+  const text = C.summaryText(g, emoji(g.category));
+  const [note, setNote] = useState("");
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(text); setNote("Copied. Paste it in any chat."); }
+    catch (e) { setNote("Couldn't copy. Select the text above and copy it."); }
+  };
+  const share = async () => { try { await navigator.share({ title: g.name, text }); } catch (e) { /* closed */ } };
+  return html`<${Dialog} title="Share summary" onClose=${onClose} actions=${html`<button class="btn text" onClick=${onClose}>Close</button>`}>
+    <pre class="summary-text">${text}</pre>
+    <div class="row wrap">
+      <a class="btn primary" href=${"https://wa.me/?text=" + encodeURIComponent(text)} target="_blank" rel="noopener">WhatsApp</a>
+      ${typeof navigator.share === "function" && html`<button class="btn ghost" onClick=${share}>Share…</button>`}
+      <button class="btn ghost" onClick=${copy}>Copy text</button></div>
+    ${note && html`<p class="small" style="margin:0;color:var(--brand-strong)">${note}</p>`}
+  </${Dialog}>`;
 }
 
 function SettleDialog({ g, prefill, onClose }) {
@@ -464,14 +542,17 @@ function PeopleTab({ g, onAdd }) {
   const s = D.state;
   const [editing, setEditing] = useState(null);
   const [removing, setRemoving] = useState(null);
+  const [changingMe, setChangingMe] = useState(null);
   if (!g.members.length) return html`<div class="empty card"><div class="big">👥</div><h2>No people yet</h2><p>Add everyone who's part of this group.</p><button class="btn primary" onClick=${onAdd}>Add people</button></div>`;
   return html`<div><div class="list">${g.members.map((m) => html`<div class="item"><${Avatar} name=${m.name} />
     <div class="grow"><b>${m.name}${m.email === s.user.email ? " (you)" : ""}</b>
       ${m.isFamily && html`<div class="small muted">${describeMember(m)}</div>`}
-      ${m.email && html`<div class="small muted">${m.email}${g.access.includes(m.email) ? "" : " · not invited"}${m.custom ? " · size set by hand" : ""}</div>`}</div>
+      ${m.email && html`<div class="small muted">${m.email}${g.access.includes(m.email) ? "" : " · not invited"}${m.custom ? " · size set by hand" : ""}</div>`}
+      ${m.email === s.user.email && html`<button class="btn text small" style="padding:0;min-height:0" onClick=${() => setChangingMe(m)}>Not you? Change</button>`}</div>
     <button class="btn text small" onClick=${() => setEditing(m)}>Edit</button>
     <button class="btn text small danger" onClick=${() => setRemoving(m)}>Remove</button></div>`)}</div>
     ${editing && html`<${MemberDialog} g=${g} member=${editing} onClose=${() => setEditing(null)} />`}
+    ${changingMe && html`<${ChangeMe} g=${g} current=${changingMe} onClose=${() => setChangingMe(null)} />`}
     ${removing && (C.isInvolved(g, removing.id)
       ? html`<${Dialog} title=${`Can't remove ${removing.name}`} onClose=${() => setRemoving(null)} actions=${html`<button class="btn primary" onClick=${() => setRemoving(null)}>OK</button>`}>
           <p class="muted" style="margin:0">${removing.name} is part of some expenses or payments. Edit or delete those first.</p></${Dialog}>`

@@ -192,3 +192,4 @@ div.field { display: grid; gap: 5px; font-weight: 600; font-size: .88rem; }
 /* Two-option switches stay on one line on phones. */
 @media (max-width: 520px) { .seg { flex-wrap: nowrap; width: 100%; } .seg button { flex: 1; padding: 7px 8px; font-size: .86rem; white-space: nowrap; } }
 .item.select-all { cursor: pointer; background: var(--surface-2); }
+.summary-text { margin: 0; max-height: 46vh; overflow: auto; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: .9rem; background: var(--surface-2); border-radius: 12px; padding: 12px 14px; }

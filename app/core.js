@@ -117,6 +117,34 @@ export function totals(g) {
 
 export const allTransfers = (g) => currenciesUsed(g).flatMap((c) => settleUp(balances(g, c), c));
 
+/** The group as plain text for chat apps: expenses, balances and who pays whom. Same as the Android app. */
+export function summaryText(g, emoji = "") {
+  const name = (id) => (g.members.find((m) => m.id === id) || { name: "Unknown" }).name;
+  const out = [`${emoji ? emoji + " " : ""}${g.name}`, `Total spent: ${formatTotals(totals(g), g.currency)}`];
+  if (g.expenses.length) {
+    out.push("", "Expenses:");
+    [...g.expenses].sort((a, b) => a.createdAt - b.createdAt).forEach((e) =>
+      out.push(`• ${e.name}: ${formatMoney(e.amount, e.currency)} (paid by ${name(e.paidBy)}, split among ${e.splitAmong.length})`));
+  }
+  const curs = currenciesUsed(g);
+  if (g.members.length && curs.length) {
+    for (const cur of curs) {
+      const net = balances(g, cur);
+      out.push("", curs.length > 1 ? `Balances in ${cur}:` : "Balances:");
+      for (const m of g.members) {
+        const v = net.get(m.id) || 0;
+        out.push(`• ${m.name}: ${v > 0 ? "gets back " + formatMoney(v, cur) : v < 0 ? "owes " + formatMoney(-v, cur) : "settled up"}`);
+      }
+    }
+  }
+  const t = allTransfers(g);
+  if (t.length) {
+    out.push("", "To settle up:");
+    t.forEach((x) => out.push(`• ${name(x.from)} pays ${name(x.to)} ${formatMoney(x.amount, x.currency)}`));
+  }
+  return out.join("\n").trim();
+}
+
 /** Money still to be paid back, per currency. */
 export function unsettled(g) {
   const out = new Map();
@@ -130,6 +158,45 @@ export function unsettled(g) {
 export const isInvolved = (g, id) =>
   g.expenses.some((e) => e.paidBy === id || e.splitAmong.includes(id)) ||
   g.payments.some((p) => p.from === id || p.to === id);
+
+/** How many expenses and payments a person is part of. */
+export const involvementCount = (g, id) =>
+  g.expenses.filter((e) => e.paidBy === id || e.splitAmong.includes(id)).length +
+  g.payments.filter((p) => p.from === id || p.to === id).length;
+
+/** A name without a "(…)" added to tell two people apart: "Priya (me)" -> "priya". */
+export const baseName = (name) => name.replace(/\s*\([^)]*\)\s*$/, "").trim().replace(/\s+/g, " ").toLowerCase();
+
+/** Someone else in the list with the same name as this person, not linked to anyone. */
+export function sameNameAs(g, id) {
+  const m = g.members.find((x) => x.id === id);
+  const base = m ? baseName(m.name) : "";
+  return base ? g.members.find((x) => x.id !== id && !x.email && baseName(x.name) === base) || null : null;
+}
+
+/**
+ * fromId turned out to be the same person as intoId (added twice). intoId takes over its
+ * expenses, payments and Google link, and fromId leaves the group. Same rules as the Android app.
+ */
+export function mergeMember(g, fromId, intoId) {
+  const from = g.members.find((m) => m.id === fromId);
+  if (!from || fromId === intoId || !g.members.some((m) => m.id === intoId)) return g;
+  const swap = (id) => (id === fromId ? intoId : id);
+  const expenses = g.expenses.map((e) => {
+    if (e.paidBy !== fromId && !e.splitAmong.includes(fromId) && !(fromId in e.counts)) return e;
+    const counts = { ...e.counts };
+    if (fromId in counts) {
+      const c = counts[fromId], kept = counts[intoId];
+      delete counts[fromId];
+      // Counted twice before: keep the bigger count, not the sum.
+      if (!kept || c.adults + c.kids > kept.adults + kept.kids) counts[intoId] = c;
+    }
+    return { ...e, paidBy: swap(e.paidBy), splitAmong: [...new Set(e.splitAmong.map(swap))], counts };
+  });
+  const payments = g.payments.map((p) => ({ ...p, from: swap(p.from), to: swap(p.to) })).filter((p) => p.from !== p.to);
+  const members = g.members.filter((m) => m.id !== fromId).map((m) => (m.id === intoId && !m.email && from.email ? { ...m, email: from.email } : m));
+  return { ...g, members, expenses, payments };
+}
 
 /**
  * A "per family" expense: one total amount where every included family or person counts once.
