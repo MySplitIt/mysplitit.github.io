@@ -198,3 +198,12 @@ div.field { display: grid; gap: 5px; font-weight: 600; font-size: .88rem; }
 .add-new { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 1.4rem; font-weight: 700; color: var(--brand-strong); background: var(--brand-soft); flex: none; }
 .seg-full { display: flex; background: var(--surface); border: 1px solid var(--line); } .seg-full button { flex: 1; }
 .seg-full button[aria-pressed="true"] { background: var(--brand); color: #fff; }
+.currency-compact { width: 8.5rem; }
+/* Amounts: the currency symbol sits inside the box; the main amount stands out. */
+.money { display: flex; align-items: center; gap: 6px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
+.money:focus-within { border-color: var(--brand); }
+.money .cur { color: var(--muted); font-weight: 600; }
+.money input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 0; font: inherit; color: var(--text); outline: none; }
+.money.big { border: 2px solid var(--brand); background: color-mix(in srgb, var(--brand) 8%, var(--surface)); }
+.money.big .cur, .money.big input { font-size: 1.6rem; font-weight: 800; color: var(--text); }
+.money.error { border-color: var(--bad); }

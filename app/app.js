@@ -73,10 +73,18 @@ const Confirm = ({ title, message, label, onYes, onClose }) => html`<${Dialog} t
   actions=${html`<button class="btn text" onClick=${onClose}>Cancel</button><button class="btn danger ghost" onClick=${() => { onYes(); onClose(); }}>${label}</button>`}>
   <p class="muted" style="margin:0;white-space:pre-line">${message}</p></${Dialog}>`;
 
-function CurrencySelect({ value, onChange }) {
+function CurrencySelect({ value, onChange, compact }) {
   const list = useMemo(() => C.allCurrencies(), []);
-  return html`<select class="input" value=${value} onChange=${(e) => onChange(e.target.value)}>
-    ${list.map((c) => html`<option value=${c}>${C.currencyLabel(c)} – ${C.currencyName(c)}</option>`)}</select>`;
+  const ref = useRef(null);
+  const full = (c) => `${C.currencyLabel(c)} – ${C.currencyName(c)}`;
+  if (!compact) return html`<select class="input" value=${value} onChange=${(e) => onChange(e.target.value)}>
+    ${list.map((c) => html`<option value=${c}>${full(c)}</option>`)}</select>`;
+  // Compact: the closed box shows just "₹ INR"; the list shows full names while it's open.
+  const names = (long) => { const el = ref.current; if (el) for (const o of el.options) o.text = long ? full(o.value) : C.currencyLabel(o.value); };
+  return html`<select ref=${ref} class="input currency-compact" value=${value} aria-label=${"Currency: " + C.currencyName(value)}
+    onMouseDown=${() => names(true)} onTouchStart=${() => names(true)} onKeyDown=${() => names(true)} onBlur=${() => names(false)}
+    onChange=${(e) => { names(false); onChange(e.target.value); }}>
+    ${list.map((c) => html`<option value=${c}>${C.currencyLabel(c)}</option>`)}</select>`;
 }
 
 // ---------- Sign in and profile ----------
@@ -548,7 +556,7 @@ function SettleDialog({ g, prefill, onClose }) {
     actions=${html`<button class="btn text" onClick=${onClose}>Cancel</button><button class="btn primary" disabled=${!ok} onClick=${() => { D.addPayment(g.id, { from, to, amount: cents, currency: cur }); onClose(); }}>Save</button>`}>
     <label class="field">Who paid${pick(from, setFrom)}</label><label class="field">Paid to${pick(to, setTo)}</label>
     <div class="row"><label class="field grow">Amount<input class="input" inputmode="decimal" value=${amount} onInput=${(e) => setAmount(e.target.value)} /></label>
-      <label class="field grow">Currency<${CurrencySelect} value=${cur} onChange=${setCur} /></label></div>
+      <label class="field" style="flex:none">Currency<${CurrencySelect} compact value=${cur} onChange=${setCur} /></label></div>
     ${from === to && html`<span class="hint error">Pick two different people</span>`}
   </${Dialog}>`;
 }
@@ -707,7 +715,9 @@ function ExpenseForm({ g, existing }) {
   const [adultText, setAdultText] = useState(existing && existing.mode === "AGE" ? C.toInput(existing.adultPrice) : "");
   const [kidText, setKidText] = useState(existing && existing.mode === "AGE" ? C.toInput(existing.kidPrice) : "");
   const [paidText, setPaidText] = useState(existing && existing.mode === "AGE" && existing.amount !== sub ? C.toInput(existing.amount) : "");
-  const [cur, setCur] = useState(existing ? existing.currency : g.currency);
+  // Expenses use the group's currency (an older expense keeps its own).
+  const cur = existing ? existing.currency : g.currency;
+  const sym = C.symbol(cur);
   const [desc, setDesc] = useState(existing ? existing.description : "");
   const lastPayer = [...g.expenses].sort((a, b) => b.createdAt - a.createdAt)[0];
   const [paidBy, setPaidBy] = useState(existing ? existing.paidBy : C.meIn(g, s.user.email) || (lastPayer && ids.includes(lastPayer.paidBy) ? lastPayer.paidBy : ids[0]));
@@ -742,21 +752,22 @@ function ExpenseForm({ g, existing }) {
     <div class="topbar"><button class="icon-btn" aria-label="Back" onClick=${back}>${ICON.back}</button><h1 class="grow">${existing ? "Edit expense" : "Add expense"}</h1>
       ${existing && html`<button class="btn text danger" onClick=${() => setConfirmDel(true)}>Delete</button>`}
       <button class="btn primary" onClick=${save}>Save</button></div>
+    <div class="row"><${CategoryTile} category=${g.category} size=${40} />
+      <div><b>${g.name}</b><div class="small muted">Amounts in ${C.currencyLabel(cur)}</div></div></div>
     <div class="card stack">
       <label class="field">Expense name<input class="input ${showErr && errors.name ? "error" : ""}" value=${name} maxlength="100" placeholder="e.g. Dinner" onInput=${(e) => setName(e.target.value)} autofocus /></label>
       <div class="seg"><button type="button" aria-pressed=${mode === "EQUAL"} onClick=${() => setMode("EQUAL")}>One total amount</button><button type="button" aria-pressed=${mode === "AGE"} onClick=${() => setMode("AGE")}>Adult & kid prices</button></div>
-      <div class="row wrap">
-        <label class="field" style="min-width:160px">Currency<${CurrencySelect} value=${cur} onChange=${setCur} /></label>
-        ${mode === "EQUAL" ? html`<label class="field grow">Amount<input class="input ${showErr && errors.amount ? "error" : ""}" inputmode="decimal" value=${amountText} placeholder="0" onInput=${(e) => setAmountText(e.target.value)} /></label>`
-          : html`<label class="field grow">Per adult<input class="input" inputmode="decimal" value=${adultText} onInput=${(e) => setAdultText(e.target.value)} /></label>
-                 <label class="field grow">Per kid<input class="input" inputmode="decimal" value=${kidText} onInput=${(e) => setKidText(e.target.value)} /></label>`}
-      </div>
+      ${mode === "EQUAL" ? html`<label class="field">Amount<span class="money big ${showErr && errors.amount ? "error" : ""}"><span class="cur">${sym}</span>
+            <input inputmode="decimal" value=${amountText} placeholder="0" onInput=${(e) => setAmountText(e.target.value)} /></span></label>`
+        : html`<div class="row wrap">
+            <label class="field grow">Per adult<span class="money"><span class="cur">${sym}</span><input inputmode="decimal" value=${adultText} onInput=${(e) => setAdultText(e.target.value)} /></span></label>
+            <label class="field grow">Per kid<span class="money"><span class="cur">${sym}</span><input inputmode="decimal" value=${kidText} onInput=${(e) => setKidText(e.target.value)} /></span></label></div>`}
       ${mode === "EQUAL" && anyFamilies && html`<label class="check per-family"><input type="checkbox" checked=${perFamily}
           onChange=${(e) => { setPerFamily(e.target.checked); if (!e.target.checked) setCounts({}); }} />
         <span><b>Split per family</b><span class="hint" style="display:block">${perFamily
           ? "Each family or person pays one equal share, however many people it has. Good for a villa, a room or a car."
           : "Off: split per head, so a family of 4 pays 4 shares."}</span></span></label>`}
-      ${mode === "AGE" && html`<label class="field">Total paid, with tax (optional)<input class="input" inputmode="decimal" value=${paidText} onInput=${(e) => setPaidText(e.target.value)} />
+      ${mode === "AGE" && html`<label class="field">Total paid, with tax (optional)<span class="money big"><span class="cur">${sym}</span><input inputmode="decimal" value=${paidText} placeholder="0" onInput=${(e) => setPaidText(e.target.value)} /></span>
         <span class="hint">${extra > 0 ? `Includes ${C.formatMoney(extra, cur)} tax & charges (${Math.round(extra * 100 / ticketTotal)}%), shared by ticket cost`
           : extra < 0 ? `${C.formatMoney(-extra, cur)} discount, shared by ticket cost` : ticketTotal > 0 ? `Tickets come to ${C.formatMoney(ticketTotal, cur)}. If the bill was more (tax, charges), enter it here` : "If the bill included tax or charges, enter the full amount here"}</span></label>`}
       <label class="field">Description (optional)<textarea class="input" rows="2" maxlength="1000" onInput=${(e) => setDesc(e.target.value)}>${desc}</textarea></label>
