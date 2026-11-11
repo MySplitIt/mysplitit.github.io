@@ -653,13 +653,33 @@ function MemberDialog({ g, member, onClose }) {
   const [family, setFamily] = useState(member ? member.isFamily : false);
   const [adults, setAdults] = useState(member && member.isFamily ? member.adults : 2);
   const [kids, setKids] = useState(member ? member.kids : 0);
+  // Their MySplitIt profile, for people linked to an account: matching it keeps following it.
+  const [prof, setProf] = useState(null);
+  useEffect(() => {
+    if (!member || !member.email) return;
+    if (D.state.user && member.email === D.state.user.email) { setProf(D.state.profile); return; }
+    let live = true;
+    D.findUser(member.email).then((r) => { if (live && r.profile) setProf(r.profile); });
+    return () => { live = false; };
+  }, []);
   const taken = g.members.filter((m) => !member || m.id !== member.id);
   const clean = email.trim().toLowerCase();
   const nameClash = name.trim() && taken.some((m) => m.name.trim().toLowerCase() === name.trim().toLowerCase());
   const mailErr = clean && (!C.isEmail(clean) ? "Enter a full email address" : taken.some((m) => m.email === clean) ? "Already linked to someone else" : "");
   const ok = name.trim() && !nameClash && !mailErr;
+  const linked = !!(prof && member && clean === member.email);
+  const pFamily = !!prof && D.profileHeads(prof) > 1;
+  const pa = prof ? (pFamily ? prof.adults + prof.friends : 1) : 1;
+  const pk = prof && pFamily ? prof.kids : 0;
+  const pText = `${pa} ${pa === 1 ? "adult" : "adults"}${pk ? ` · ${pk} ${pk === 1 ? "kid" : "kids"}` : ""}`;
+  const matches = linked && family === pFamily && (!family || (adults === pa && kids === pk));
+  const choose = (f) => {
+    // Switching to Family starts from their profile.
+    if (f && !family && linked && pFamily) { setAdults(pa); setKids(pk); }
+    setFamily(f);
+  };
   const save = () => {
-    const custom = member && member.email && clean === member.email ? true : (member ? member.custom : false);
+    const custom = linked ? !matches : (member ? member.custom : false);
     D.saveMember(g.id, { ...(member || {}), name: name.trim(), email: clean, isFamily: family, adults: family ? adults : 1, kids: family ? kids : 0, friends: 0, custom });
     onClose();
   };
@@ -669,9 +689,13 @@ function MemberDialog({ g, member, onClose }) {
       ${nameClash && html`<span class="hint error">Someone with this name is already in the group</span>`}</label>
     <label class="field">Gmail (optional)<input class="input ${mailErr ? "error" : ""}" type="email" value=${email} onInput=${(e) => setEmail(e.target.value)} />
       <span class="hint ${mailErr ? "error" : ""}">${mailErr || "Links this person to their Google account and gives them access"}</span></label>
-    <label class="check"><input type="checkbox" checked=${family} onChange=${(e) => setFamily(e.target.checked)} /> This is a family</label>
-    ${family && html`<${Stepper} label="Adults" value=${adults} min=${1} onChange=${setAdults} /><${Stepper} label="Kids" value=${kids} min=${0} onChange=${setKids} />`}
-    ${member && member.email && html`<p class="small muted" style="margin:0">Saving here sets ${member.name}'s size by hand for this group, instead of following their profile.</p>`}
+    <div class="field">Coming as
+      <div class="seg seg-full" role="group" aria-label="Coming as"><button type="button" aria-pressed=${!family} onClick=${() => choose(false)}>Single</button><button type="button" aria-pressed=${family} onClick=${() => choose(true)}>Family</button></div></div>
+    ${family && html`<${Stepper} label="Adults" value=${adults} min=${kids === 0 ? 2 : 1} onChange=${setAdults} /><${Stepper} label="Kids" value=${kids} min=${adults === 1 ? 1 : 0} onChange=${setKids} />
+      <span class="hint">Equal splits count each adult and kid: ${adults + kids} ${adults + kids === 1 ? "person" : "people"}.</span>`}
+    ${linked && html`<p class="small" style=${`margin:0;color:${matches ? "var(--brand-strong)" : "var(--muted)"}`}>${matches
+      ? `From their profile (${pText}). Updates when they change it.`
+      : `Set by hand for this group. Their profile says ${pText}.`}</p>`}
   </${Dialog}>`;
 }
 
