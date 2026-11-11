@@ -86,7 +86,7 @@ test("cloud documents round-trip and bad data is cleaned up", () => {
     ],
     expenses: [{ id: "e1", name: "Tickets", description: "Water park", amount: 236000, currency: "INR", paidBy: "r", splitAmong: ["a", "r"],
       createdAt: 10, mode: "AGE", counts: { a: { adults: 2, kids: 1 }, r: { adults: 1, kids: 0 } }, adultPrice: 50000, kidPrice: 25000 }],
-    payments: [{ id: "p1", from: "a", to: "r", amount: 1000, currency: "INR", createdAt: 20 }],
+    payments: [{ id: "p1", from: "a", to: "r", amount: 1000, currency: "INR", createdAt: 20, status: "", by: "" }],
   };
   const back = C.groupFromDocs("g1", C.groupDoc(g), g.members.map((m) => [m.id, C.memberDoc(m)]),
     g.expenses.map((e) => [e.id, C.expenseDoc(e)]), g.payments.map((p) => [p.id, C.paymentDoc(p)]));
@@ -222,4 +222,25 @@ test("per family split gives each family one share", () => {
   assert.equal(C.expenseShares(perHead).get("f"), 514286);
   assert.equal(C.isPerFamily({ ...villa, counts: {} }, g), false);
   assert.equal(C.isPerFamily(exp(40000, "a", ["a", "b"], "INR", { counts: { a: { adults: 1, kids: 0 }, b: { adults: 1, kids: 0 } } }), group([])), false);
+});
+
+test("payments to someone linked wait for them to confirm", () => {
+  const people = [{ id: "r", name: "Raj", email: "raj@x.com" }, { id: "a", name: "Asha", email: "asha@x.com" }, { id: "k", name: "Kiran", email: "" }];
+  const g = { id: "g", name: "Goa", currency: "INR", shared: true, members: people, payments: [],
+    expenses: [{ id: "e1", name: "Dinner", description: "", amount: 90000, currency: "INR", paidBy: "a", splitAmong: ["r", "a", "k"], createdAt: 1, mode: "EQUAL", counts: {} }] };
+  assert.equal(C.needsConfirmation(g, "a", "raj@x.com"), true);
+  assert.equal(C.needsConfirmation(g, "a", "asha@x.com"), false);
+  assert.equal(C.needsConfirmation(g, "k", "raj@x.com"), false);
+  const p = { id: "p1", from: "r", to: "a", amount: 30000, currency: "INR", createdAt: 5, status: C.PENDING, by: "raj@x.com" };
+  const pending = { ...g, payments: [p] };
+  assert.deepEqual(C.balances(pending, "INR"), C.balances(g, "INR"), "pending doesn't count");
+  assert.equal(C.balances({ ...g, payments: [{ ...p, status: C.PAID }] }, "INR").get("r"), 0);
+  assert.deepEqual(C.toConfirm(pending, "asha@x.com").map((x) => x.id), ["p1"]);
+  assert.equal(C.canConfirm(pending, p, "raj@x.com"), false);
+  const n = C.describeChange(g, pending, "raj@x.com");
+  assert.equal(n.text, "Raj says they paid Asha ₹300 · waiting for Asha to confirm");
+  assert.deepEqual(n.personal, { "asha@x.com": "Raj says they paid you ₹300. Tap to confirm you got it." });
+  const ok = C.describeChange(pending, { ...g, payments: [{ ...p, status: C.PAID }] }, "asha@x.com");
+  assert.deepEqual(ok.personal, { "raj@x.com": "Asha confirmed getting your ₹300" });
+  assert.equal(C.describeChange(g, { ...g, expenses: [] }, "raj@x.com").text, "Raj deleted Dinner");
 });

@@ -207,3 +207,12 @@ div.field { display: grid; gap: 5px; font-weight: 600; font-size: .88rem; }
 .money.big { border: 2px solid var(--brand); background: color-mix(in srgb, var(--brand) 8%, var(--surface)); }
 .money.big .cur, .money.big input { font-size: 1.6rem; font-weight: 800; color: var(--text); }
 .money.error { border-color: var(--bad); }
+
+/* Payments waiting for the person who got the money to confirm */
+.banner.confirm { display: flex; flex-direction: column; }
+.confirm-amount { font-size: 1.6rem; font-weight: 800; }
+.pay-status.wait { color: #c25a0f; font-weight: 600; }
+.pay-status.bad { color: var(--bad); font-weight: 600; }
+.item.payment.unconfirmed { background: var(--surface); }
+.amount.struck { text-decoration: line-through; color: var(--muted, #888); }
+.pill.confirm { color: var(--brand-strong); background: var(--brand-soft); }

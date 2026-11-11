@@ -1,7 +1,7 @@
 // MySplitIt Web: the screens. Data and syncing live in data.js; money rules in core.js.
 import { html, render, useState, useEffect, useMemo, useRef } from "https://unpkg.com/htm@3.1.1/preact/standalone.module.js";
-import * as C from "./core.js?v=20261109i";
-import * as D from "./data.js?v=20261109i";
+import * as C from "./core.js?v=20261110f";
+import * as D from "./data.js?v=20261110f";
 import { Icon, Logo, Tile, CategoryTile, CATEGORIES, categoryStyle, expenseStyle, PAYMENT } from "./brand.js?v=20261105d";
 
 // ---------- Helpers ----------
@@ -326,11 +326,13 @@ function GroupsPage() {
       <button class="btn primary" onClick=${() => setCreating(true)}>Create a group</button></div>`
     : html`<div class="cards">${groups.map((g) => {
       const left = C.unsettled(g);
+      const waiting = C.toConfirm(g, s.user.email).length;
       return html`<button class="card group-card" onClick=${() => go("group/" + g.id)}>
         <${CategoryTile} category=${g.category} size=${54} />
         <span class="grow"><b class="ellipsis" style="display:block;font-size:1.05rem">${g.name}</b>
           <span class="small muted">${membersLabel(g)} · ${count(g.expenses.length, "expense", "expenses")}</span>
-          ${g.expenses.length > 0 && html`<span class=${"pill " + (left.size ? "warn" : "ok")}>${left.size ? C.formatTotals(left, g.currency) + " to settle" : "All settled up"}</span>`}</span>
+          ${waiting > 0 ? html`<span class="pill confirm">${waiting === 1 ? "1 payment to confirm" : waiting + " payments to confirm"}</span>`
+          : g.expenses.length > 0 && html`<span class=${"pill " + (left.size ? "warn" : "ok")}>${left.size ? C.formatTotals(left, g.currency) + " to settle" : "All settled up"}</span>`}</span>
         <span class="amount">${C.formatTotals(C.totals(g), g.currency)}<br /><span class="small muted" style="font-weight:400">spent</span></span>
       </button>`;
     })}</div>`}
@@ -480,19 +482,71 @@ function ChangeMe({ g, current, onClose }) {
   </${Dialog}>`;
 }
 
+/** Payments waiting for you to say whether you got them. */
+function ConfirmBanner({ g }) {
+  const me = D.state.user ? D.state.user.email : "";
+  const waiting = C.toConfirm(g, me);
+  const name = (id) => (g.members.find((m) => m.id === id) || { name: "Someone" }).name;
+  return waiting.map((p) => html`<div class="banner confirm"><span class="small">${name(p.from)} says they paid you</span>
+    <b class="confirm-amount">${C.formatMoney(p.amount, p.currency)}</b>
+    <p class="small" style="margin:2px 0 10px">It counts in the balances once you confirm you got it.</p>
+    <div class="row wrap"><button class="btn primary" onClick=${() => D.setPaymentStatus(g.id, p.id, C.PAID)}>Yes, I got it</button>
+      <button class="btn ghost" onClick=${() => D.setPaymentStatus(g.id, p.id, C.DECLINED)}>Not received</button></div></div>`);
+}
+
+function PaymentItem({ g, p, onOpen }) {
+  const name = (id) => (g.members.find((m) => m.id === id) || { name: "Someone" }).name;
+  const date = day(p.createdAt).toLocaleString(undefined, { day: "numeric", month: "short" });
+  const status = C.paymentStatusText(g, p);
+  return html`<div class=${"item payment clickable" + (status ? " unconfirmed" : "")} onClick=${() => onOpen(p.id)}><${Tile} icon=${PAYMENT.icon} color=${PAYMENT.color} size=${44} /><div class="grow"><b>${name(p.from)} paid ${name(p.to)}</b><div class="small muted">${date} · Settle-up payment</div>
+      ${status && html`<div class=${"small pay-status " + (p.status === C.DECLINED ? "bad" : "wait")}>${status}</div>`}</div>
+    <span class=${"amount" + (p.status === C.DECLINED ? " struck" : "")}>${C.formatMoney(p.amount, p.currency)}</span></div>`;
+}
+
+/** A payment: its status, and confirming, turning it down, asking again or deleting it. */
+function PaymentDialog({ g, pid, onClose }) {
+  const p = g.payments.find((x) => x.id === pid);
+  const [deleting, setDeleting] = useState(false);
+  if (!p) return null;
+  const me = D.state.user ? D.state.user.email : "";
+  const name = (id) => (g.members.find((m) => m.id === id) || { name: "Someone" }).name;
+  const can = C.canConfirm(g, p, me);
+  const status = C.paymentStatusText(g, p);
+  const by = p.by && ((g.members.find((m) => m.email === p.by) || {}).name || p.by);
+  const act = (st) => { D.setPaymentStatus(g.id, p.id, st); onClose(); };
+  if (deleting) {
+    return html`<${Dialog} title="Delete this payment?" onClose=${onClose}
+      actions=${html`<button class="btn text" onClick=${onClose}>Cancel</button><button class="btn danger" onClick=${() => { D.deletePayment(g.id, p.id); onClose(); }}>Delete</button>`}>
+      <p class="muted" style="margin:0">${name(p.from)} paid ${name(p.to)} ${C.formatMoney(p.amount, p.currency)}.</p></${Dialog}>`;
+  }
+  return html`<${Dialog} title=${`${name(p.from)} paid ${name(p.to)}`} onClose=${onClose}
+    actions=${html`<button class="btn text danger" onClick=${() => setDeleting(true)}>Delete</button><button class="btn text" onClick=${onClose}>Close</button>`}>
+    <b style="font-size:1.6rem">${C.formatMoney(p.amount, p.currency)}</b>
+    ${status ? html`<p class=${"pay-status " + (p.status === C.DECLINED ? "bad" : "wait")} style="margin:0">${status}</p>
+      <p class="small muted" style="margin:0">It doesn't count in the balances until ${name(p.to)} confirms it.</p>`
+    : html`<p class="muted" style="margin:0">Settle-up payment</p>`}
+    ${by && html`<p class="small muted" style="margin:0">Recorded by ${by}</p>`}
+    <div class="row wrap">
+      ${!C.isPaid(p) && can && html`<button class="btn primary" onClick=${() => act(C.PAID)}>Yes, I got it</button>`}
+      ${p.status === C.PENDING && can && html`<button class="btn ghost" onClick=${() => act(C.DECLINED)}>Not received</button>`}
+      ${p.status === C.DECLINED && !can && html`<button class="btn ghost" onClick=${() => act(C.PENDING)}>Ask ${name(p.to)} again</button>`}
+    </div></${Dialog}>`;
+}
+
 function ExpensesTab({ g }) {
+  const [open, setOpen] = useState(null);
   const items = [...g.expenses.map((e) => ({ t: e.createdAt, e })), ...g.payments.map((p) => ({ t: p.createdAt, p }))].sort((a, b) => b.t - a.t);
   if (!g.members.length) return html`<div class="empty card"><div class="big">👥</div><p>Add people first, then add expenses.</p></div>`;
   if (!items.length) return html`<div class="empty card"><div class="big">🧾</div><h2>No expenses yet</h2><p>Add the first expense, like a hotel, dinner or tickets.</p></div>`;
   const name = (id) => (g.members.find((m) => m.id === id) || { name: "Someone" }).name;
   return html`<div>
+    <${ConfirmBanner} g=${g} />
     <div class="total-card" style=${`--c:${categoryStyle(g.category).color}`}><${Icon} name=${categoryStyle(g.category).icon} size=${150} cls="total-mark" />
       <span class="small">Total spent</span><b>${C.formatTotals(C.totals(g), g.currency)}</b><span class="small">${count(g.expenses.length, "expense", "expenses")} · ${membersLabel(g)} · click one to edit</span></div>
     <div class="list">${items.map(({ e, p }) => {
       const d = day(e ? e.createdAt : p.createdAt);
       const date = d.toLocaleString(undefined, { day: "numeric", month: "short" });
-      if (p) return html`<div class="item payment"><${Tile} icon=${PAYMENT.icon} color=${PAYMENT.color} size=${44} /><div class="grow"><b>${name(p.from)} paid ${name(p.to)}</b><div class="small muted">${date} · Settle-up payment</div></div>
-        <span class="amount">${C.formatMoney(p.amount, p.currency)}</span></div>`;
+      if (p) return html`<${PaymentItem} g=${g} p=${p} onOpen=${setOpen} />`;
       const look = expenseStyle(e.name + " " + (e.description || ""));
       const all = e.splitAmong.length === g.members.length;
       return html`<div class="item clickable" onClick=${() => go(`group/${g.id}/expense/${e.id}`)}><${Tile} icon=${look.icon} color=${look.color} size=${44} />
@@ -500,15 +554,19 @@ function ExpensesTab({ g }) {
           ${e.mode === "AGE" && html`<div class="small" style="color:var(--brand-strong)">${C.formatMoney(e.adultPrice, e.currency)} per adult · ${C.formatMoney(e.kidPrice, e.currency)} per kid${C.ageSubtotal(e) !== e.amount ? ` · ${e.amount > C.ageSubtotal(e) ? "+" : "−"}${C.formatMoney(Math.abs(e.amount - C.ageSubtotal(e)), e.currency)} ${e.amount > C.ageSubtotal(e) ? "tax" : "discount"}` : ""}</div>`}
           ${e.description && html`<div class="small muted">${e.description}</div>`}</div>
         <span class="amount">${C.formatMoney(e.amount, e.currency)}<span class="small muted when">${date}</span></span></div>`;
-    })}</div></div>`;
+    })}</div>
+    ${open && html`<${PaymentDialog} g=${g} pid=${open} onClose=${() => setOpen(null)} />`}</div>`;
 }
 
 function BalancesTab({ g, onSummary }) {
   const [settle, setSettle] = useState(null);
+  const [open, setOpen] = useState(null);
+  const unconfirmed = g.payments.filter((p) => !C.isPaid(p)).sort((a, b) => b.createdAt - a.createdAt);
   const curs = C.currenciesUsed(g);
   const name = (id) => (g.members.find((m) => m.id === id) || { name: "Someone" }).name;
   if (!curs.length) return html`<div class="empty card"><div class="big">⚖️</div><p>Balances appear once there are expenses.</p></div>`;
   return html`<div class="stack">
+    <${ConfirmBanner} g=${g} />
     ${curs.map((cur) => {
       const net = C.balances(g, cur);
       const t = C.settleUp(net, cur);
@@ -519,6 +577,10 @@ function BalancesTab({ g, onSummary }) {
           <div class="grow"><span class="small muted">${name(x.from)} pays ${name(x.to)}</span><b style="display:block">${C.formatMoney(x.amount, cur)}</b></div><button class="btn ghost small" onClick=${() => setSettle(x)}>Mark paid</button></div>`)}</div>`}
       </div>`;
     })}
+    ${unconfirmed.length > 0 && html`<div class="stack"><h3>Waiting for confirmation</h3>
+      <p class="small muted" style="margin:0">These payments count once the person who got the money confirms.</p>
+      <div class="list">${unconfirmed.map((p) => html`<${PaymentItem} g=${g} p=${p} onOpen=${setOpen} />`)}</div></div>`}
+    ${open && html`<${PaymentDialog} g=${g} pid=${open} onClose=${() => setOpen(null)} />`}
     <div class="row wrap">${g.members.length >= 2 && html`<button class="btn ghost" onClick=${() => setSettle({})}>Record a payment</button>`}
       <button class="btn ghost" onClick=${onSummary}>Share summary</button></div>
     ${settle && html`<${SettleDialog} g=${g} prefill=${settle} onClose=${() => setSettle(null)} />`}
@@ -558,6 +620,7 @@ function SettleDialog({ g, prefill, onClose }) {
     <div class="row"><label class="field grow">Amount<input class="input" inputmode="decimal" value=${amount} onInput=${(e) => setAmount(e.target.value)} /></label>
       <label class="field" style="flex:none">Currency<${CurrencySelect} compact value=${cur} onChange=${setCur} /></label></div>
     ${from === to && html`<span class="hint error">Pick two different people</span>`}
+    ${from !== to && C.needsConfirmation(g, to, D.state.user ? D.state.user.email : "") && html`<span class="hint">${(g.members.find((m) => m.id === to) || {}).name} will be asked to confirm they got it. It counts in the balances once they do.</span>`}
   </${Dialog}>`;
 }
 
