@@ -69,7 +69,7 @@ export function balances(g, currency) {
     add(net, e.paidBy, e.amount);
     for (const [id, s] of expenseShares(e)) add(net, id, -s);
   }
-  for (const p of g.payments.filter((x) => x.currency === currency)) {
+  for (const p of g.payments.filter((x) => x.currency === currency && isPaid(x))) {
     add(net, p.from, p.amount);
     add(net, p.to, -p.amount);
   }
@@ -360,7 +360,9 @@ export const expenseDoc = (e) => ({
   counts: Object.fromEntries(Object.entries(e.counts).map(([k, c]) => [k, [c.adults, c.kids]])),
   adultPrice: e.adultPrice, kidPrice: e.kidPrice,
 });
-export const paymentDoc = (p) => ({ from: p.from, to: p.to, amount: p.amount, currency: p.currency, createdAt: p.createdAt });
+export const paymentDoc = (p) => ({
+  from: p.from, to: p.to, amount: p.amount, currency: p.currency, createdAt: p.createdAt, status: cleanStatus(p.status), by: p.by || "",
+});
 
 const str = (d, k, max) => (typeof d[k] === "string" ? d[k].slice(0, max).trim() : "");
 const num = (d, k) => (typeof d[k] === "number" && isFinite(d[k]) ? Math.trunc(d[k]) : 0);
@@ -407,7 +409,10 @@ export function groupFromDocs(id, doc, members, expenses, payments) {
     const from = str(d, "from", 64);
     const to = str(d, "to", 64);
     if (!ids.has(from) || !ids.has(to) || from === to) return null;
-    return { id: pid, from, to, amount: money(d, "amount"), currency: cur(str(d, "currency", 8), currency), createdAt: num(d, "createdAt") };
+    return {
+      id: pid, from, to, amount: money(d, "amount"), currency: cur(str(d, "currency", 8), currency), createdAt: num(d, "createdAt"),
+      status: cleanStatus(str(d, "status", 16)), by: str(d, "by", 254).toLowerCase(),
+    };
   }).filter(Boolean).sort((a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : 1));
   return {
     id, name: str(doc, "name", 100) || "Shared group", category: str(doc, "category", 40) || "Other", currency,
@@ -433,3 +438,93 @@ export function newJoinCode() {
 }
 
 export const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+
+// ---------- Payments the person who got the money confirms ----------
+// Same rules as the Android app (and firestore.rules): a payment to someone else who is linked
+// to a Google account waits ("pending") until they confirm it. Only confirmed payments count.
+export const PAID = "", PENDING = "pending", DECLINED = "declined";
+export const cleanStatus = (s) => (s === PENDING || s === DECLINED ? s : PAID);
+export const isPaid = (p) => cleanStatus(p.status) === PAID;
+const emailOf = (g, id) => (g.members.find((m) => m.id === id) || {}).email || "";
+export const needsConfirmation = (g, toId, myEmail) => { const e = emailOf(g, toId); return !!g.shared && !!e && e !== myEmail; };
+export const canConfirm = (g, p, myEmail) => { const e = emailOf(g, p.to); return !e || e === myEmail; };
+export const toConfirm = (g, myEmail) => (myEmail ? g.payments.filter((p) => p.status === PENDING && emailOf(g, p.to) === myEmail) : []);
+export function paymentStatusText(g, p) {
+  const n = (g.members.find((m) => m.id === p.to) || { name: "them" }).name;
+  return p.status === PENDING ? `Waiting for ${n} to confirm` : p.status === DECLINED ? `${n} says they didn't get it` : "";
+}
+
+// ---------- Notifications ----------
+export const MAX_NOTICE = 300;
+
+/**
+ * What the others in a shared group are told about a change you made, such as
+ * "Raj added Dinner · ₹1,200". `personal` holds wording for one person (by email): the one asked
+ * to confirm a payment, or the payer once it's answered. Null when nothing worth telling changed.
+ * Same wording as the Android app.
+ */
+export function describeChange(old, next, myEmail) {
+  const me = meIn(next, myEmail) || meIn(old, myEmail);
+  const find = (id) => next.members.find((m) => m.id === id) || old.members.find((m) => m.id === id);
+  const who = (me && find(me)?.name) || "Someone";
+  const name = (id) => (id === me ? who : find(id)?.name || "someone");
+  const email = (id) => find(id)?.email || "";
+  const lines = [];
+  const personal = {};
+  if (old.name !== next.name) lines.push(`${who} renamed the group to ${next.name}`);
+  const oldIds = new Set(old.members.map((m) => m.id));
+  const newIds = new Set(next.members.map((m) => m.id));
+  const added = next.members.filter((m) => !oldIds.has(m.id));
+  const removed = old.members.filter((m) => !newIds.has(m.id));
+  if (added.length === 1) lines.push(`${who} added ${added[0].name}`);
+  else if (added.length > 1) lines.push(`${who} added ${added.length} people`);
+  if (removed.length === 1) lines.push(`${who} removed ${removed[0].name}`);
+  else if (removed.length > 1) lines.push(`${who} removed ${removed.length} people`);
+  const quiet = removed.length > 0;
+  const same = (a, b) => JSON.stringify(expenseDoc(a)) === JSON.stringify(expenseDoc(b));
+  const oldE = new Map(old.expenses.map((e) => [e.id, e]));
+  const newE = new Set(next.expenses.map((e) => e.id));
+  for (const e of next.expenses) {
+    const before = oldE.get(e.id);
+    if (!before) lines.push(`${who} added ${e.name} · ${formatMoney(e.amount, e.currency)}`);
+    else if (!quiet && !same(before, e)) lines.push(`${who} edited ${e.name} · ${formatMoney(e.amount, e.currency)}`);
+  }
+  for (const e of old.expenses) if (!newE.has(e.id)) lines.push(`${who} deleted ${e.name}`);
+  const oldP = new Map(old.payments.map((p) => [p.id, p]));
+  const newP = new Set(next.payments.map((p) => p.id));
+  for (const p of next.payments) {
+    const before = oldP.get(p.id);
+    const amt = formatMoney(p.amount, p.currency);
+    const payer = p.from === me ? "they" : name(p.from);
+    const status = cleanStatus(p.status);
+    if (!before) {
+      if (status === PENDING) {
+        lines.push(`${who} says ${payer} paid ${name(p.to)} ${amt} · waiting for ${name(p.to)} to confirm`);
+        if (email(p.to)) personal[email(p.to)] = `${who} says ${payer} paid you ${amt}. Tap to confirm you got it.`;
+      } else if (p.from === me) lines.push(`${who} paid ${name(p.to)} ${amt}`);
+      else if (p.to === me) lines.push(`${who} got ${amt} from ${name(p.from)}`);
+      else lines.push(`${who} recorded ${name(p.from)} paid ${name(p.to)} ${amt}`);
+    } else if (cleanStatus(before.status) !== status) {
+      const payerEmail = email(p.from);
+      const recorder = before.by && before.by !== payerEmail ? before.by : "";
+      if (status === PAID) {
+        lines.push(`${who} confirmed getting ${amt} from ${name(p.from)}`);
+        if (payerEmail) personal[payerEmail] = `${who} confirmed getting your ${amt}`;
+        if (recorder) personal[recorder] = `${who} confirmed getting ${amt} from ${name(p.from)}`;
+      } else if (status === DECLINED) {
+        lines.push(`${who} says they didn't get ${amt} from ${name(p.from)}`);
+        if (payerEmail) personal[payerEmail] = `${who} says they didn't get your ${amt}. Check with them.`;
+        if (recorder) personal[recorder] = `${who} says they didn't get ${amt} from ${name(p.from)}`;
+      } else {
+        lines.push(`${who} asked ${name(p.to)} again to confirm ${amt} from ${name(p.from)}`);
+        if (email(p.to)) personal[email(p.to)] = `${who} asks you again: did you get ${amt} from ${payer}? Tap to confirm.`;
+      }
+    }
+  }
+  for (const p of old.payments) if (!newP.has(p.id) && !quiet) lines.push(`${who} deleted a payment: ${name(p.from)} paid ${name(p.to)} ${formatMoney(p.amount, p.currency)}`);
+  if (myEmail) delete personal[myEmail];
+  if (!lines.length && !Object.keys(personal).length) return null;
+  const text = lines.length <= 2 ? lines.join("\n") : lines.slice(0, 2).join("\n") + `\n…and ${lines.length - 2} more changes`;
+  for (const k of Object.keys(personal)) personal[k] = personal[k].slice(0, MAX_NOTICE);
+  return { text: text.slice(0, MAX_NOTICE), personal };
+}

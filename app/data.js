@@ -10,7 +10,7 @@ import {
   collection, doc, query, where, onSnapshot, writeBatch, getDocFromServer, arrayUnion, arrayRemove, terminate, clearIndexedDbPersistence,
   serverTimestamp, getDocsFromServer, deleteDoc, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import * as C from "./core.js?v=20261109i";
+import * as C from "./core.js?v=20261110f";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCwvtv268fZG-_kj4aaHgMa732_AckKoKw",
@@ -66,6 +66,29 @@ function fail(e) {
     : "Something went wrong: " + ((e && e.message) || "unknown error"));
 }
 const commit = (b) => b.commit().catch(fail);
+
+// ---------- Notifications ----------
+// After you change a shared group, MySplitIt's server tells everyone else in it (on their
+// phones). It checks with your sign-in that you're in the group. Best effort: a failure here
+// never stops the change itself.
+const NOTIFY_URL = usesEmulator ? "http://localhost:8787/notify" : "https://splitit-verify.phanee-apps.workers.dev/notify";
+async function sendNotice(gid, notice) {
+  if (!notice || !auth.currentUser) return;
+  try {
+    const token = await auth.currentUser.getIdToken();
+    await fetch(NOTIFY_URL, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ group: gid, text: notice.text, personal: notice.personal || {} }),
+    });
+  } catch (e) { console.warn("MySplitIt: couldn't send the notification", e); }
+}
+/** Saves [b]; once the server has it, tells the others what changed from the group as it was to [next]. */
+function commitAndTell(b, gid, next) {
+  const old = state.groups.get(gid);
+  const notice = old && next && state.user ? C.describeChange(old, next, state.user.email) : null;
+  b.commit().then(() => sendNotice(gid, notice)).catch(fail);
+}
+const withGroup = (gid, f) => { const g = state.groups.get(gid); return g ? f(g) : null; };
 
 // ---------- Signing in ----------
 export async function signInWithGoogle() {
@@ -469,7 +492,7 @@ export function createGroup({ name, category, currency, me }) {
 export function editGroup(id, { name, category, currency }) {
   const b = writeBatch(db);
   b.update(groupRef(id), { name, category, currency });
-  commit(b);
+  commitAndTell(b, id, withGroup(id, (g) => ({ ...g, name, category, currency })));
 }
 
 /** Adds or updates a person; a linked Gmail also gets access to the group. */
@@ -479,9 +502,11 @@ export function saveMember(gid, m) {
   const email = (m.email || "").trim().toLowerCase();
   // An email belongs to one person in a group.
   if (email && g) for (const other of g.members) if (other.id !== m.id && other.email === email) b.set(sub(gid, "members", other.id), C.memberDoc({ ...other, email: "" }));
-  b.set(sub(gid, "members", m.id || C.newId()), C.memberDoc({ ...m, email, addedAt: m.addedAt || now() }));
+  const id = m.id || C.newId();
+  b.set(sub(gid, "members", id), C.memberDoc({ ...m, email, addedAt: m.addedAt || now() }));
   if (email && g && !g.access.includes(email) && g.access.length < C.MAX_ACCESS) b.update(groupRef(gid), { access: arrayUnion(email) });
-  commit(b);
+  // Only someone new is news (not a changed family size or Google link).
+  commitAndTell(b, gid, g && !m.id ? { ...g, members: [...g.members, { ...m, id, email }] } : null);
 }
 
 export function addProfileToGroup(gid, p) {
@@ -497,7 +522,7 @@ export function removeMember(gid, mid) {
   if (!g || C.isInvolved(g, mid)) return false;
   const b = writeBatch(db);
   b.delete(sub(gid, "members", mid));
-  commit(b);
+  commitAndTell(b, gid, { ...g, members: g.members.filter((m) => m.id !== mid) });
   return true;
 }
 
@@ -541,17 +566,43 @@ export function mergeMember(gid, fromId, intoId) {
 
 export function saveExpense(gid, e) {
   const b = writeBatch(db);
-  b.set(sub(gid, "expenses", e.id || C.newId()), C.expenseDoc({ ...e, createdAt: e.createdAt || now() }));
-  commit(b);
+  const saved = { ...e, id: e.id || C.newId(), createdAt: e.createdAt || now() };
+  b.set(sub(gid, "expenses", saved.id), C.expenseDoc(saved));
+  commitAndTell(b, gid, withGroup(gid, (g) => ({ ...g, expenses: [...g.expenses.filter((x) => x.id !== saved.id), saved] })));
 }
-export function deleteExpense(gid, eid) { const b = writeBatch(db); b.delete(sub(gid, "expenses", eid)); commit(b); }
-
-export function addPayment(gid, { from, to, amount, currency }) {
+export function deleteExpense(gid, eid) {
   const b = writeBatch(db);
-  b.set(sub(gid, "payments", C.newId()), C.paymentDoc({ from, to, amount, currency, createdAt: now() }));
-  commit(b);
+  b.delete(sub(gid, "expenses", eid));
+  commitAndTell(b, gid, withGroup(gid, (g) => ({ ...g, expenses: g.expenses.filter((x) => x.id !== eid) })));
 }
-export function deletePayment(gid, pid) { const b = writeBatch(db); b.delete(sub(gid, "payments", pid)); commit(b); }
+
+/** A payment to someone else who is linked waits for them to confirm it. */
+export function addPayment(gid, { from, to, amount, currency }) {
+  const g = state.groups.get(gid);
+  const me = state.user ? state.user.email : "";
+  const p = {
+    id: C.newId(), from, to, amount, currency, createdAt: now(), by: me,
+    status: g && C.needsConfirmation(g, to, me) ? C.PENDING : C.PAID,
+  };
+  const b = writeBatch(db);
+  b.set(sub(gid, "payments", p.id), C.paymentDoc(p));
+  commitAndTell(b, gid, g ? { ...g, payments: [...g.payments, p] } : null);
+}
+/** Confirms (C.PAID), turns down (C.DECLINED) or asks again (C.PENDING). */
+export function setPaymentStatus(gid, pid, status) {
+  const g = state.groups.get(gid);
+  const p = g && g.payments.find((x) => x.id === pid);
+  if (!p) return;
+  const next = { ...p, status: C.cleanStatus(status) };
+  const b = writeBatch(db);
+  b.set(sub(gid, "payments", pid), C.paymentDoc(next));
+  commitAndTell(b, gid, { ...g, payments: g.payments.map((x) => (x.id === pid ? next : x)) });
+}
+export function deletePayment(gid, pid) {
+  const b = writeBatch(db);
+  b.delete(sub(gid, "payments", pid));
+  commitAndTell(b, gid, withGroup(gid, (g) => ({ ...g, payments: g.payments.filter((x) => x.id !== pid) })));
+}
 
 export function invite(gid, email) {
   const b = writeBatch(db);
@@ -649,6 +700,8 @@ export async function joinWithLink(gid, code) {
   b.set(doc(db, "groups", gid, "joins", u.uid), { code, at: serverTimestamp() });
   try {
     await Promise.race([b.commit(), new Promise((_, no) => setTimeout(() => no({ code: "timeout" }), 20000))]);
+    const who = (state.profile && state.profile.name) || u.name || u.email;
+    sendNotice(gid, { text: `${who} joined the group`.slice(0, C.MAX_NOTICE), personal: {} });
     return null;
   } catch (e) {
     if (e && e.code === "not-found") return "This group doesn't exist any more.";
