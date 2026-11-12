@@ -24,7 +24,7 @@
 </header>
 <main class="doc">
   <h1>Privacy policy</h1>
-  <p class="muted">Last updated: 5 November 2026</p>
+  <p class="muted">Last updated: 12 November 2026</p>
   <p>MySplitIt is an Android app for splitting shared expenses. This page explains what data the app uses, where it's kept and who can see it. In short: there are no ads, no analytics and no tracking, and your data is never sold.</p>
 
   <h2>Data that stays on your phone</h2>
@@ -38,7 +38,8 @@
   <p>This applies to both the Android app and MySplitIt Web in your browser, which use the same account and data. MySplitIt Web keeps a copy of your shared groups in your browser so it works offline; signing out clears it.</p>
   <ul>
     <li><strong>Google sign-in:</strong> MySplitIt receives your name and email address from Google. It doesn't get your password or access to your Gmail, Drive or contacts.</li>
-    <li><strong>Shared groups</strong> are stored in Google Firebase (Cloud Firestore) so members can sync. Only the Google accounts listed in a group can read or change it; this is enforced by Firebase's security rules on the server.</li>
+    <li><strong>Email sign-in:</strong> if you sign in with an email and password instead, your password goes straight to Google Firebase Authentication, which stores it securely. MySplitIt never sees or stores it. Firebase emails you a link to confirm your address, and to reset your password if you ask.</li>
+    <li><strong>Shared groups</strong> are stored in Google Firebase (Cloud Firestore) so members can sync. Only the accounts listed in a group can read or change it; this is enforced by Firebase's security rules on the server.</li>
     <li><strong>Your profile</strong> (name, email, and how many adults, kids and friends usually come with you) can be seen by signed-in MySplitIt users who search for your exact email or phone number, so they can add you to a group.</li>
     <li><strong>Your phone number</strong> is required to use sign-in and sharing, and is used only so friends can find you by that exact number. For now you type it in. When WhatsApp verification is switched on, you'll prove it instead by sending one message with a one-time code to MySplitIt's WhatsApp number: Meta's WhatsApp Business Platform passes us your WhatsApp number and that message, and MySplitIt replies once to confirm. We keep only your number and when it was verified, not the message. It isn't shown to anyone, and only you can read it.</li>
     <li><strong>Who handles the verification:</strong> Meta (WhatsApp) delivers the message, a small MySplitIt server on Cloudflare checks the code, and the result is stored in Google Firebase. None of them get your groups or expenses from this.</li>

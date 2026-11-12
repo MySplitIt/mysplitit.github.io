@@ -216,3 +216,8 @@ div.field { display: grid; gap: 5px; font-weight: 600; font-size: .88rem; }
 .item.payment.unconfirmed { background: var(--surface); }
 .amount.struck { text-decoration: line-through; color: var(--muted, #888); }
 .pill.confirm { color: var(--brand-strong); background: var(--brand-soft); }
+/* Continue with email */
+.email-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.email-btn svg { width: 18px; height: 18px; }
+.password { display: flex; gap: 6px; align-items: center; }
+.password .input { flex: 1; min-width: 0; }

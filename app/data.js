@@ -4,6 +4,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut as fbSignOut,
   connectAuthEmulator, signInWithCredential, getRedirectResult, deleteUser, reauthenticateWithPopup, reauthenticateWithCredential,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail, EmailAuthProvider, reload,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, connectFirestoreEmulator,
@@ -106,6 +107,72 @@ export async function signInWithGoogle() {
 }
 getRedirectResult(auth).catch(() => {});
 
+// Email and password accounts. They count as signed in once the email is confirmed (the
+// security rules only let in confirmed emails); until then state.unconfirmed holds the email.
+export const MIN_PASSWORD = 8;
+
+/** Turns a Firebase sign-in error into a plain message. */
+function emailError(e) {
+  console.warn("MySplitIt email sign-in", e);
+  switch (e && e.code) {
+    case "auth/email-already-in-use": return "This email already has a MySplitIt account. Sign in instead, or use Continue with Google if you used Google before.";
+    case "auth/weak-password": return `Choose a longer password, at least ${MIN_PASSWORD} characters.`;
+    case "auth/invalid-email": return "That email address doesn't look right.";
+    case "auth/invalid-credential": case "auth/wrong-password": case "auth/user-not-found": case "auth/invalid-login-credentials":
+      return "Wrong email or password.";
+    case "auth/too-many-requests": return "Too many tries. Wait a few minutes, or use Forgot password.";
+    case "auth/operation-not-allowed": return "Email sign-in isn't turned on yet. Use Continue with Google for now.";
+    case "auth/network-request-failed": return "No internet connection. Try again when you're online.";
+    default: return "Something went wrong. Please try again.";
+  }
+}
+/** The confirmation email links back to this page once the address is confirmed. */
+async function sendConfirmation(u) {
+  try { await sendEmailVerification(u, { url: location.origin + location.pathname }); }
+  catch (e) {
+    if (e.code !== "auth/unauthorized-continue-uri" && e.code !== "auth/invalid-continue-uri") throw e;
+    await sendEmailVerification(u);
+  }
+}
+/** Each returns a message if it didn't work, or null. */
+export async function signInWithEmail(email, password) {
+  try { await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password); return null; } catch (e) { return emailError(e); }
+}
+export async function createEmailAccount(email, password) {
+  try {
+    const r = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+    await sendConfirmation(r.user);
+    return null;
+  } catch (e) { return emailError(e); }
+}
+/** Emails a link to set a new password. Firebase doesn't say whether the account exists. */
+export async function resetPassword(email) {
+  try { await sendPasswordResetEmail(auth, email.trim().toLowerCase()); return null; } catch (e) { return emailError(e); }
+}
+export async function resendConfirmation() {
+  try { if (auth.currentUser) await sendConfirmation(auth.currentUser); return null; } catch (e) { return emailError(e); }
+}
+/**
+ * Asks Firebase whether you've tapped the link in the confirmation email. If so, gets a new
+ * sign-in token that says the email is confirmed (the old one doesn't) and signs you in.
+ */
+export async function checkEmailConfirmed() {
+  const u = auth.currentUser;
+  if (!u) return false;
+  try {
+    await reload(u);
+    if (!auth.currentUser || !auth.currentUser.emailVerified) return false;
+    await auth.currentUser.getIdToken(true);
+    handleAuth(auth.currentUser);
+    return true;
+  } catch (e) { console.warn("MySplitIt: couldn't check the confirmation", e); return false; }
+}
+/** Signed in with an email and password only (no Google), so confirming it's you needs the password. */
+export function usesPassword() {
+  const ids = (auth.currentUser ? auth.currentUser.providerData : []).map((p) => p.providerId);
+  return ids.includes("password") && !ids.includes("google.com");
+}
+
 /** Emulator only: signs in as a made-up Google account (the real Firebase rejects this). */
 const testToken = (email) => JSON.stringify({ sub: "test-" + email, email, email_verified: true, name: email.split("@")[0] });
 export async function signInForTesting(email) {
@@ -120,13 +187,14 @@ export async function signInForTesting(email) {
  * phone number and lookups, and finally your sign-in. Returns a message if something went
  * wrong, or null when done (the page then reloads, signed out).
  */
-export async function deleteAccount() {
+export async function deleteAccount(password = null) {
   const fu = auth.currentUser, u = state.user;
   if (!fu || !u) return "Sign in first.";
-  // Google wants a fresh sign-in before an account is deleted. Ask first, so nothing is deleted
-  // if you cancel (and so the Google window opens straight from your click).
-  if (!(Date.now() - Date.parse(fu.metadata.lastSignInTime || 0) < 4 * 60000)) {
-    const m = await reauth(fu);
+  // Firebase wants a fresh sign-in before an account is deleted. Ask first, so nothing is deleted
+  // if you cancel (and so the Google window opens straight from your click). Email accounts
+  // always confirm with the password typed just now.
+  if (password !== null || !(Date.now() - Date.parse(fu.metadata.lastSignInTime || 0) < 4 * 60000)) {
+    const m = await reauth(fu, password);
     if (m) return m;
   }
   stopWatching();
@@ -172,7 +240,7 @@ export async function deleteAccount() {
       await deleteUser(fu);
     } catch (e) {
       if (e.code !== "auth/requires-recent-login") throw e;
-      if (await reauth(fu)) return "Your data is deleted. To finish, sign in again and click Delete account once more.";
+      if (await reauth(fu, password)) return "Your data is deleted. To finish, sign in again and click Delete account once more.";
       await deleteUser(fu);
     }
   } catch (e) {
@@ -184,7 +252,15 @@ export async function deleteAccount() {
 }
 
 /** Asks Google to confirm it's you again, with the same account. Returns a message if not. */
-async function reauth(fu) {
+async function reauth(fu, password = null) {
+  if (password !== null) {
+    try { await reauthenticateWithCredential(fu, EmailAuthProvider.credential(fu.email, password)); return null; }
+    catch (e) {
+      if (e.code === "auth/invalid-credential" || e.code === "auth/wrong-password") return "Wrong password. Nothing was deleted.";
+      if (e.code === "auth/too-many-requests") return "Too many tries. Wait a few minutes. Nothing was deleted.";
+      return "Couldn't confirm your password. Nothing was deleted.";
+    }
+  }
   try {
     if (usesEmulator) {
       await reauthenticateWithCredential(fu, GoogleAuthProvider.credential(testToken(fu.email)));
@@ -209,17 +285,21 @@ export async function signOut() {
   location.reload();
 }
 
-onAuthStateChanged(auth, (u) => {
+onAuthStateChanged(auth, (u) => handleAuth(u));
+function handleAuth(u) {
   state.authReady = true;
   const email = u && u.email ? u.email.trim().toLowerCase() : null;
-  const next = u && email ? { uid: u.uid, email, name: u.displayName || email, photo: u.photoURL || "" } : null;
+  // Google sign-ins always come confirmed; email accounts count once the email is confirmed.
+  const unconfirmed = !!(u && email && !u.emailVerified);
+  state.unconfirmed = unconfirmed ? email : null;
+  const next = u && email && !unconfirmed ? { uid: u.uid, email, name: u.displayName || C.nameFromEmail(email), photo: u.photoURL || "" } : null;
   if (JSON.stringify(next) === JSON.stringify(state.user) && state.ready) { changed(); return; }
   stopWatching();
   state.user = next;
   if (next) startWatching(next); else { state.status = "signed-out"; state.groups = new Map(); }
   state.ready = true;
   changed();
-});
+}
 
 // ---------- Receiving changes ----------
 let listeners = [];

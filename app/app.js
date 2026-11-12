@@ -1,7 +1,7 @@
 // MySplitIt Web: the screens. Data and syncing live in data.js; money rules in core.js.
 import { html, render, useState, useEffect, useMemo, useRef } from "https://unpkg.com/htm@3.1.1/preact/standalone.module.js";
 import * as C from "./core.js?v=20261110f";
-import * as D from "./data.js?v=20261110f";
+import * as D from "./data.js?v=20261112a";
 import { Icon, Logo, Tile, CategoryTile, CATEGORIES, categoryStyle, expenseStyle, PAYMENT } from "./brand.js?v=20261105d";
 
 // ---------- Helpers ----------
@@ -94,20 +94,30 @@ function SignIn() {
   const [msg, setMsg] = useState("");
   const [deleted] = useState(() => { try { const d = sessionStorage.getItem("mysplitit-deleted"); sessionStorage.removeItem("mysplitit-deleted"); return !!d; } catch (e) { return false; } });
   const [email, setEmail] = useState("");
+  const [withEmail, setWithEmail] = useState(false);
   const google = async () => {
     setBusy(true); setMsg("");
     try { await D.signInWithGoogle(); } catch (e) { setMsg("Couldn't sign in. Please try again."); console.warn(e); }
     setBusy(false);
   };
+  if (D.state.unconfirmed) return html`<div class="auth"><div class="card"><${ConfirmEmail} email=${D.state.unconfirmed} /></div></div>`;
+  if (withEmail) return html`<div class="auth"><div class="card">
+    <img class="logo" src="../assets/icon.svg" alt="" />
+    <h1>Continue with email</h1>
+    <${EmailForm} onBack=${() => setWithEmail(false)} />
+  </div></div>`;
   return html`<div class="auth"><div class="card">
     <img class="logo" src="../assets/icon.svg" alt="" />
     <h1>MySplitIt Web</h1>
     ${joining
-      ? html`<p class="banner" style="margin:0"><b>You're invited to a shared group.</b> Sign in with Google to join it.</p>`
+      ? html`<p class="banner" style="margin:0"><b>You're invited to a shared group.</b> Sign in to join it.</p>`
       : html`<p class="muted" style="margin:0">Sign in to see your groups and add expenses with friends on the MySplitIt app. Everything syncs live with your phone.</p>`}
     <button class="btn google" disabled=${busy} onClick=${google}>
       <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.8 6.1C12.4 13.7 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.6 7.1-17.1z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.7 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2 1.4-4.7 2.3-8.7 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.8 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
       ${busy ? "Signing in…" : "Continue with Google"}</button>
+    <button class="btn ghost email-btn" disabled=${busy} onClick=${() => { setMsg(""); setWithEmail(true); }}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/></svg>
+      Continue with email</button>
     ${navigator.standalone === true && html`<p class="small ios-signin">After you choose your Google account, tap <b>✕</b> at the top left of Google's window to come back to MySplitIt.</p>`}
     ${D.usesEmulator && html`<div class="stack" style="text-align:left"><label class="field">Test email (local emulator)
       <input class="input" value=${email} onInput=${(e) => setEmail(e.target.value.trim())} placeholder="alice@example.com" /></label>
@@ -117,6 +127,87 @@ function SignIn() {
     <p class="small muted" style="margin:0">New here? Signing in creates your account. MySplitIt only reads your name and email. <a href="../privacy.html">Privacy</a></p>
     <a class="small" href="../">← Back to the MySplitIt website</a>
   </div></div>`;
+}
+
+/** "Continue with email": sign in, or make an account, with an email and password. */
+function EmailForm({ onBack }) {
+  const [creating, setCreating] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [info, setInfo] = useState("");
+  const clean = email.trim().toLowerCase();
+  const ready = C.isEmail(clean) && password.length >= (creating ? D.MIN_PASSWORD : 1);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!ready || busy) return;
+    setBusy(true); setMsg(""); setInfo("");
+    const m = creating ? await D.createEmailAccount(clean, password) : await D.signInWithEmail(clean, password);
+    if (m) setMsg(m);
+    setBusy(false);
+  };
+  const forgot = async () => {
+    setMsg(""); setInfo("");
+    if (!C.isEmail(clean)) { setMsg("Type your email above, then click Forgot password."); return; }
+    setBusy(true);
+    const m = await D.resetPassword(clean);
+    if (m) setMsg(m); else setInfo(`If ${clean} has a MySplitIt account, we've emailed it a link to set a new password. Check your spam folder too.`);
+    setBusy(false);
+  };
+  const mode = (c) => { setCreating(c); setMsg(""); setInfo(""); };
+  return html`<form class="stack" style="text-align:left" onSubmit=${submit}>
+    <div class="seg seg-full" role="group" aria-label="Sign in or make an account">
+      <button type="button" aria-pressed=${!creating} onClick=${() => mode(false)}>Sign in</button>
+      <button type="button" aria-pressed=${creating} onClick=${() => mode(true)}>New account</button>
+    </div>
+    <label class="field">Email<input class="input" type="email" autocomplete="email" value=${email}
+      onInput=${(e) => setEmail(e.target.value.trim())} placeholder="you@example.com" /></label>
+    <label class="field">${creating ? "Choose a password" : "Password"}
+      <span class="password"><input class="input" type=${show ? "text" : "password"} autocomplete=${creating ? "new-password" : "current-password"}
+        value=${password} onInput=${(e) => setPassword(e.target.value)} />
+        <button type="button" class="btn text" onClick=${() => setShow(!show)}>${show ? "Hide" : "Show"}</button></span>
+      ${creating && html`<span class="hint">At least ${D.MIN_PASSWORD} characters</span>`}</label>
+    <button class="btn primary" type="submit" disabled=${!ready || busy}>${busy ? "Please wait…" : creating ? "Create account" : "Sign in"}</button>
+    ${creating
+      ? html`<p class="small muted" style="margin:0">We'll email you a link to confirm your address. Use the email your friends know you by, so they can add you to their groups.</p>`
+      : html`<button type="button" class="btn text" disabled=${busy} onClick=${forgot}>Forgot password?</button>`}
+    ${msg && html`<p class="bad" style="margin:0">${msg}</p>`}
+    ${info && html`<p class="good" style="margin:0">${info}</p>`}
+    <button type="button" class="btn text" onClick=${onBack}>← Other ways to sign in</button>
+  </form>`;
+}
+
+/** After making an email account: waiting for the link in the confirmation email to be clicked. */
+function ConfirmEmail({ email }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [info, setInfo] = useState("");
+  // Checks every few seconds, so confirming in another tab is enough.
+  useEffect(() => {
+    const t = setInterval(() => D.checkEmailConfirmed(), 4000);
+    return () => clearInterval(t);
+  }, [email]);
+  const check = async () => {
+    setBusy(true); setMsg(""); setInfo("");
+    if (!(await D.checkEmailConfirmed())) setMsg("Not confirmed yet. Click the link in the email first.");
+    setBusy(false);
+  };
+  const resend = async () => {
+    setBusy(true); setMsg(""); setInfo("");
+    const m = await D.resendConfirmation();
+    if (m) setMsg(m); else setInfo(`Sent again to ${email}.`);
+    setBusy(false);
+  };
+  return html`<img class="logo" src="../assets/icon.svg" alt="" />
+    <h1>Confirm your email</h1>
+    <p class="muted" style="margin:0">We sent a link to <b>${email}</b>. Click it to confirm your address, then come back here. It can take a minute, and it may be in your spam folder.</p>
+    <button class="btn primary" disabled=${busy} onClick=${check}>I've confirmed it</button>
+    <button class="btn ghost" disabled=${busy} onClick=${resend}>Send the email again</button>
+    <button class="btn text" disabled=${busy} onClick=${() => D.signOut()}>Use a different account</button>
+    ${msg && html`<p class="bad" style="margin:0">${msg}</p>`}
+    ${info && html`<p class="good" style="margin:0">${info}</p>`}`;
 }
 
 function ProfileForm({ first, onDone }) {
@@ -687,8 +778,8 @@ function MemberDialog({ g, member, onClose }) {
     actions=${html`<button class="btn text" onClick=${onClose}>Cancel</button><button class="btn primary" disabled=${!ok} onClick=${save}>${member ? "Save" : "Add"}</button>`}>
     <label class="field">${family ? "Family name" : "Name"}<input class="input ${nameClash ? "error" : ""}" value=${name} maxlength="100" onInput=${(e) => setName(e.target.value)} autofocus />
       ${nameClash && html`<span class="hint error">Someone with this name is already in the group</span>`}</label>
-    <label class="field">Gmail (optional)<input class="input ${mailErr ? "error" : ""}" type="email" value=${email} onInput=${(e) => setEmail(e.target.value)} />
-      <span class="hint ${mailErr ? "error" : ""}">${mailErr || "Links this person to their Google account and gives them access"}</span></label>
+    <label class="field">Email (optional)<input class="input ${mailErr ? "error" : ""}" type="email" value=${email} onInput=${(e) => setEmail(e.target.value)} />
+      <span class="hint ${mailErr ? "error" : ""}">${mailErr || "Links this person to their MySplitIt account and gives them access"}</span></label>
     <div class="field">Coming as
       <div class="seg seg-full" role="group" aria-label="Coming as"><button type="button" aria-pressed=${!family} onClick=${() => choose(false)}>Single</button><button type="button" aria-pressed=${family} onClick=${() => choose(true)}>Family</button></div></div>
     ${family && html`<${Stepper} label="Adults" value=${adults} min=${kids === 0 ? 2 : 1} onChange=${setAdults} /><${Stepper} label="Kids" value=${kids} min=${adults === 1 ? 1 : 0} onChange=${setKids} />
@@ -733,9 +824,9 @@ function AddPeople({ g, onClose }) {
           const taken = new Set(g.members.map((m) => m.name.trim().toLowerCase()));
           let n = C.nameFromEmail(res.email); if (taken.has(n.toLowerCase())) n += ` (${res.email.split("@")[0]})`;
           D.saveMember(g.id, { name: n, email: res.email, isFamily: false, adults: 1, kids: 0 }); setAdded([...added, n]); setRes(null); setQ("");
-          location.href = `mailto:${encodeURIComponent(res.email)}?subject=${encodeURIComponent(`Join "${g.name}" on MySplitIt`)}&body=${encodeURIComponent(`Hi! I've added you to "${g.name}" on MySplitIt. Sign in with Google using ${res.email} at ${location.origin}${location.pathname} or in the MySplitIt app, and the group will show up.`)}`;
+          location.href = `mailto:${encodeURIComponent(res.email)}?subject=${encodeURIComponent(`Join "${g.name}" on MySplitIt`)}&body=${encodeURIComponent(`Hi! I've added you to "${g.name}" on MySplitIt. Sign in as ${res.email} at ${location.origin}${location.pathname} or in the MySplitIt app, and the group will show up.`)}`;
         }}>Add and invite by email</button>`
-      : html`<span>No MySplitIt account has this number.</span><span class="small muted">Ask for their Gmail address instead.</span>`}</div>`}
+      : html`<span>No MySplitIt account has this number.</span><span class="small muted">Ask for their email address instead.</span>`}</div>`}
     ${added.length > 0 && html`<p class="small" style="margin:0;color:var(--brand-strong)">Added: ${added.join(", ")}</p>`}
   </${Dialog}>`;
 }
@@ -764,7 +855,7 @@ function ShareDialog({ g, onClose }) {
   };
   return html`<${Dialog} title="Shared with" onClose=${onClose} actions=${html`<button class="btn primary" onClick=${onClose}>Done</button>`}>
     <div class="banner" style="margin:0"><b>Invite with a link</b>
-      <p class="small" style="margin:4px 0 8px">Anyone with the link can join this group after signing in with Google.</p>
+      <p class="small" style="margin:4px 0 8px">Anyone with the link can join this group after signing in.</p>
       ${confirmReset
         ? html`<p class="small" style="margin:0 0 8px">Reset the link? The old link stops working. People already in the group stay in it.</p>
           <div class="row wrap"><button class="btn text small" onClick=${() => setConfirmReset(false)}>Cancel</button>
@@ -777,10 +868,10 @@ function ShareDialog({ g, onClose }) {
     <div class="list">${g.access.map((a) => html`<div class="item"><div class="grow"><span>${a}</span>
       <div class="small" style="color:var(--brand-strong)">${[a === s.user.email && "you", a === g.ownerEmail && "owner"].filter(Boolean).join(" · ")}</div></div>
       ${owner && a !== g.ownerEmail && html`<button class="btn text small danger" onClick=${() => D.removeAccess(g.id, a)}>Remove</button>`}</div>`)}</div>
-    <label class="field">Invite by Gmail address<div class="row"><input class="input grow" type="email" placeholder="friend@gmail.com" value=${email} onInput=${(e) => setEmail(e.target.value)}
+    <label class="field">Invite by email address<div class="row"><input class="input grow" type="email" placeholder="friend@gmail.com" value=${email} onInput=${(e) => setEmail(e.target.value)}
       onKeyDown=${(e) => { if (e.key === "Enter" && ok) { D.invite(g.id, clean); setEmail(""); } }} />
       <button class="btn primary" disabled=${!ok} onClick=${() => { D.invite(g.id, clean); setEmail(""); }}>Invite</button></div>
-      <span class="hint">${already ? "Already has access" : "Use the Google account they'll sign in with"}</span></label>
+      <span class="hint">${already ? "Already has access" : "Use the email they sign in to MySplitIt with"}</span></label>
   </${Dialog}>`;
 }
 
@@ -974,16 +1065,18 @@ function DeleteAccountDialog({ onClose }) {
   const shared = [...s.groups.values()];
   const own = shared.filter((g) => g.owner === s.user.uid).length;
   const others = shared.length - own;
+  const needsPassword = D.usesPassword();
+  const [password, setPassword] = useState("");
   const go = async () => {
     setBusy(true); setMsg("");
-    const m = await D.deleteAccount();
+    const m = await D.deleteAccount(needsPassword ? password : null);
     if (m) { setMsg(m); setBusy(false); return; }
     try { sessionStorage.setItem("mysplitit-deleted", "1"); } catch (e) { /* just reload */ }
     location.replace(location.pathname + location.search);
   };
   return html`<${Dialog} title="Delete your account?" onClose=${busy ? null : onClose} actions=${html`
       <button class="btn text" disabled=${busy} onClick=${onClose}>Cancel</button>
-      <button class="btn primary danger-fill" disabled=${busy} onClick=${go}>${busy ? "Deleting…" : "Delete account"}</button>`}>
+      <button class="btn primary danger-fill" disabled=${busy || (needsPassword && !password)} onClick=${go}>${busy ? "Deleting…" : "Delete account"}</button>`}>
     <p style="margin:0">This permanently deletes:</p>
     <ul style="margin:0;padding-left:20px">
       <li>your profile and phone number</li>
@@ -991,7 +1084,9 @@ function DeleteAccountDialog({ onClose }) {
       ${others > 0 && html`<li>you from ${others} group${others === 1 ? "" : "s"} others shared with you (your name stays in their past expenses)</li>`}
       <li>your MySplitIt sign-in</li>
     </ul>
-    <p class="small muted" style="margin:0">Groups that are only on your Android phone stay there. This can't be undone. Google may ask you to confirm your account first.</p>
+    <p class="small muted" style="margin:0">Groups that are only on your Android phone stay there. This can't be undone.${needsPassword ? "" : " Google may ask you to confirm your account first."}</p>
+    ${needsPassword && html`<label class="field">Type your password to confirm<input class="input" type="password" autocomplete="current-password"
+      value=${password} onInput=${(e) => setPassword(e.target.value)} /></label>`}
     ${msg && html`<p class="bad" style="margin:0">${msg}</p>`}
   <//>`;
 }
