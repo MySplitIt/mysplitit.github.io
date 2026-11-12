@@ -25,7 +25,7 @@
 <main class="doc">
   <h1>Privacy policy</h1>
   <p class="muted">Last updated: 12 November 2026</p>
-  <p>MySplitIt is an Android app for splitting shared expenses. This page explains what data the app uses, where it's kept and who can see it. In short: there are no ads, no analytics and no tracking, and your data is never sold.</p>
+  <p>MySplitIt is an Android app, and a web app (MySplitIt Web), for splitting shared expenses. This page explains what data the app uses, where it's kept and who can see it. In short: there are no ads, no analytics and no tracking, and your data is never sold.</p>
 
   <h2>Data that stays on your phone</h2>
   <ul>
@@ -39,10 +39,11 @@
   <ul>
     <li><strong>Google sign-in:</strong> MySplitIt receives your name and email address from Google. It doesn't get your password or access to your Gmail, Drive or contacts.</li>
     <li><strong>Email sign-in:</strong> if you sign in with an email and password instead, your password goes straight to Google Firebase Authentication, which stores it securely. MySplitIt never sees or stores it. Firebase emails you a link to confirm your address, and to reset your password if you ask.</li>
-    <li><strong>Shared groups</strong> are stored in Google Firebase (Cloud Firestore) so members can sync. Only the accounts listed in a group can read or change it; this is enforced by Firebase's security rules on the server.</li>
+    <li><strong>Shared groups</strong> are stored in Google Firebase (Cloud Firestore) so members can sync. Only the accounts listed in a group can read or change it; this is enforced by Firebase's security rules on the server. Everyone in a group sees its people, expenses and payments, including who recorded a payment and whether the person paid has confirmed getting it.</li>
     <li><strong>Your profile</strong> (name, email, and how many adults, kids and friends usually come with you) can be seen by signed-in MySplitIt users who search for your exact email or phone number, so they can add you to a group.</li>
     <li><strong>Your phone number</strong> is required to use sign-in and sharing, and is used only so friends can find you by that exact number. For now you type it in. When WhatsApp verification is switched on, you'll prove it instead by sending one message with a one-time code to MySplitIt's WhatsApp number: Meta's WhatsApp Business Platform passes us your WhatsApp number and that message, and MySplitIt replies once to confirm. We keep only your number and when it was verified, not the message. It isn't shown to anyone, and only you can read it.</li>
     <li><strong>Who handles the verification:</strong> Meta (WhatsApp) delivers the message, a small MySplitIt server on Cloudflare checks the code, and the result is stored in Google Firebase. None of them get your groups or expenses from this.</li>
+    <li><strong>Notifications (Android app):</strong> when someone changes a shared group, for example adds an expense or marks a payment, the other members' phones get a short notification such as "Asha added Taxi, ₹600". The app sends the change's description to a small MySplitIt server on Cloudflare, which checks the sender is in the group and passes the notification to Google Firebase Cloud Messaging for delivery. The server doesn't keep the notification text. To receive notifications, your phone saves a notification address with your account: a random code from Google, not your phone number. Only you can read it, and it's removed when you sign out on that phone or delete your account. You can turn notifications off in Android's settings. MySplitIt Web doesn't send notifications to your browser.</li>
     <li>Each phone also keeps a copy of the shared groups it can see, so the app works offline.</li>
   </ul>
 
@@ -55,7 +56,7 @@
     <li>For shared groups, you can leave a group, or delete it for everyone if you created it.</li>
     <li>Signing out removes shared groups from that phone.</li>
   </ul>
-  <p><strong>Deleting your account:</strong> in the app, open Account &amp; sharing and tap <em>Delete account</em> (or Account → Delete account in MySplitIt Web). This removes your profile, phone number, search entries and sign-in, deletes the shared groups you created (for everyone in them) and takes you out of other people's groups; your name stays in their past expenses, without your email. It happens right away. Groups that are only on your phone stay there until you delete them or uninstall the app. You can also ask us to do it: see <a href="delete-account.html">Delete your MySplitIt account</a>.</p>
+  <p><strong>Deleting your account:</strong> in the app, open Account &amp; sharing and tap <em>Delete account</em> (or Account → Delete account in MySplitIt Web). This removes your profile, phone number, search entries, notification addresses and sign-in, deletes the shared groups you created (for everyone in them) and takes you out of other people's groups; your name stays in their past expenses, without your email. It happens right away. Groups that are only on your phone stay there until you delete them or uninstall the app. You can also ask us to do it: see <a href="delete-account.html">Delete your MySplitIt account</a>.</p>
 
   <h2>Children</h2>
   <p>MySplitIt lets parents count their kids for splitting costs. It doesn't collect any information from children; kids are only a number on a family's entry.</p>
