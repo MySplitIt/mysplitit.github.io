@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MySplitIt Privacy Policy</title>
-  <meta name="description" content="How the MySplitIt Android app handles your data.">
+  <meta name="description" content="How MySplitIt (Android app, MySplitIt Web and website) collects, uses, shares and protects your data, and your rights.">
   <meta name="theme-color" content="#00897b">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,53 +24,104 @@
 </header>
 <main class="doc">
   <h1>Privacy policy</h1>
-  <p class="muted">Last updated: 12 November 2026</p>
-  <p>MySplitIt is an Android app, and a web app (MySplitIt Web), for splitting shared expenses. This page explains what data the app uses, where it's kept and who can see it. In short: there are no ads, no analytics and no tracking, and your data is never sold.</p>
+  <p class="muted">Last updated: 19 November 2026</p>
+  <p>This policy explains what personal data MySplitIt collects, why, who it is shared with, how long it is kept, and the rights you have over it. It covers the MySplitIt Android app, MySplitIt Web (mysplitit.github.io/app) and this website, wherever you live. Using MySplitIt is also subject to our <a href="terms.html">Terms of use</a>.</p>
+  <p><strong>In short:</strong> no ads, no analytics, no tracking, and we never sell or rent your data. Groups you don't share never leave your phone. We collect only what's needed to sync shared groups and let friends find you, and you can delete your account and data from inside the app at any time.</p>
 
-  <h2>Data that stays on your phone</h2>
+  <h2>1. Who is responsible for your data</h2>
+  <p>MySplitIt is made by an independent developer, published on Google Play as <strong>kssp-apps</strong> ("we", "us"). We decide how your personal data is used and are responsible for it (the "controller" under laws such as the EU and UK GDPR, and the "data fiduciary" under India's Digital Personal Data Protection Act). Contact: <a href="mailto:kssp.apps@gmail.com">kssp.apps@gmail.com</a>.</p>
+
+  <h2>2. Data that stays on your device</h2>
   <ul>
-    <li>Groups you don't share, with their people, expenses and payments, are stored only in the app's private storage on your phone.</li>
-    <li>If you turn on the app lock, your PIN is stored only as a salted hash on your phone. Fingerprint and face unlock are handled by Android; MySplitIt never sees your fingerprint.</li>
-    <li>Android's own backup may include your groups, but only when the backup is end-to-end encrypted. Lock settings are never backed up.</li>
+    <li><strong>Groups you don't share</strong>, with their people, expenses and payments, are stored only in the app's private storage on your phone. We can't see them.</li>
+    <li><strong>App lock:</strong> your PIN is stored only as a salted hash on your phone. Fingerprint and face unlock are handled by Android; MySplitIt never receives biometric data.</li>
+    <li><strong>Contacts:</strong> if you choose to pick someone from your contacts, the app reads only the contact you pick (name, phone number, email) to fill in the form. It never reads or uploads your address book.</li>
+    <li><strong>Backups:</strong> Android's own backup may include your groups, but only when the backup is end-to-end encrypted. Lock settings are never backed up.</li>
   </ul>
 
-  <h2>When you sign in and share</h2>
-  <p>This applies to both the Android app and MySplitIt Web in your browser, which use the same account and data. MySplitIt Web keeps a copy of your shared groups in your browser so it works offline; signing out clears it.</p>
+  <h2>3. Data we collect when you sign in and share</h2>
+  <p>Signing in is optional; it's needed only to share groups. The same account works in the Android app and in MySplitIt Web, which keeps a copy of your shared groups in your browser so it works offline (signing out clears it).</p>
   <ul>
-    <li><strong>Google sign-in:</strong> MySplitIt receives your name and email address from Google. It doesn't get your password or access to your Gmail, Drive or contacts.</li>
-    <li><strong>Email sign-in:</strong> if you sign in with an email and password instead, your password goes straight to Google Firebase Authentication, which stores it securely. MySplitIt never sees or stores it. Firebase emails you a link to confirm your address, and to reset your password if you ask.</li>
-    <li><strong>Shared groups</strong> are stored in Google Firebase (Cloud Firestore) so members can sync. Only the accounts listed in a group can read or change it; this is enforced by Firebase's security rules on the server. Everyone in a group sees its people, expenses and payments, including who recorded a payment and whether the person paid has confirmed getting it.</li>
-    <li><strong>Your profile</strong> (name, email, and how many adults, kids and friends usually come with you) can be seen by signed-in MySplitIt users who search for your exact email or phone number, so they can add you to a group.</li>
-    <li><strong>Your phone number</strong> is required to use sign-in and sharing, and is used only so friends can find you by that exact number. For now you type it in. When WhatsApp verification is switched on, you'll prove it instead by sending one message with a one-time code to MySplitIt's WhatsApp number: Meta's WhatsApp Business Platform passes us your WhatsApp number and that message, and MySplitIt replies once to confirm. We keep only your number and when it was verified, not the message. It isn't shown to anyone, and only you can read it.</li>
-    <li><strong>Who handles the verification:</strong> Meta (WhatsApp) delivers the message, a small MySplitIt server on Cloudflare checks the code, and the result is stored in Google Firebase. None of them get your groups or expenses from this.</li>
-    <li><strong>Notifications (Android app):</strong> when someone changes a shared group, for example adds an expense or marks a payment, the other members' phones get a short notification such as "Asha added Taxi, ₹600". The app sends the change's description to a small MySplitIt server on Cloudflare, which checks the sender is in the group and passes the notification to Google Firebase Cloud Messaging for delivery. The server doesn't keep the notification text. To receive notifications, your phone saves a notification address with your account: a random code from Google, not your phone number. Only you can read it, and it's removed when you sign out on that phone or delete your account. You can turn notifications off in Android's settings. MySplitIt Web doesn't send notifications to your browser.</li>
-    <li>Each phone also keeps a copy of the shared groups it can see, so the app works offline.</li>
+    <li><strong>Account data:</strong> your name and email address. With Google sign-in, Google gives us your name and email; we don't get your Google password or access to your Gmail, Drive or contacts. With email sign-in, your password goes straight to Google Firebase Authentication, which stores it securely; we never see or store it. Firebase emails you to confirm your address or reset your password.</li>
+    <li><strong>Profile:</strong> your display name, phone number, and how many adults, kids and friends usually come with you. Signed-in MySplitIt users who search for your exact email address or exact phone number can see your name and family size, so they can add you to a group. Your phone number itself is never shown to them.</li>
+    <li><strong>Phone verification:</strong> when WhatsApp verification is on, you prove your number by sending one message with a one-time code to MySplitIt's WhatsApp number. Meta's WhatsApp Business Platform passes us your WhatsApp number and that message, and we reply once to confirm. We keep only your number and when it was verified, not the message.</li>
+    <li><strong>Shared groups:</strong> the group's name, type and currency, its people (names, family sizes, and the email of anyone linked to an account), expenses, and payments, including who recorded a payment and whether the person paid has confirmed it. Everyone in a group can see and change its contents.</li>
+    <li><strong>Notifications (Android app):</strong> when someone changes a shared group, the other members get a short notification such as "Asha added Taxi, ₹600". To receive them, your phone saves a notification address with your account: a random code from Google, not your phone number. It's removed when you sign out on that phone or delete your account. You can turn notifications off in Android's settings.</li>
+    <li><strong>Technical data:</strong> like any online service, our providers (listed in section 6) receive your device's IP address and basic request information when the app or website connects to them, and keep short-lived logs for security and to keep the service running. We don't use this data to identify or profile you.</li>
+    <li><strong>Contact form:</strong> if you write to us through this website, we receive your name, email and message.</li>
   </ul>
 
-  <h2>Contact form</h2>
-  <p>Messages sent from this website's contact form are delivered by email through FormSubmit (formsubmit.co). We use your name and email only to reply to you.</p>
+  <h2>4. People you add who aren't on MySplitIt</h2>
+  <p>When you add people to a group, you may enter their name, family size, email or phone number. Only add people you're splitting costs with, and only details they'd expect you to use for that. Details in groups you don't share stay on your phone. In shared groups they are visible to the group's members. Anyone can ask us to remove their details (section 9).</p>
 
-  <h2>Deleting your data</h2>
+  <h2>5. Why we use your data, and our legal bases</h2>
   <ul>
-    <li>Delete groups on your phone with a long-press on the home screen.</li>
-    <li>For shared groups, you can leave a group, or delete it for everyone if you created it.</li>
-    <li>Signing out removes shared groups from that phone.</li>
+    <li><strong>To provide the service you asked for</strong> (performance of a contract): signing you in, syncing shared groups, letting friends find and add you, sending group notifications, and deleting your account.</li>
+    <li><strong>To keep MySplitIt secure and working</strong> (legitimate interests): preventing abuse, enforcing the security rules, fixing problems.</li>
+    <li><strong>With your consent:</strong> notifications (Android asks you), picking a contact, and replying to messages you send us. You can withdraw consent at any time, without affecting what was done before.</li>
+    <li><strong>To meet legal obligations</strong>, if a valid legal request requires it.</li>
   </ul>
-  <p><strong>Deleting your account:</strong> in the app, open Account &amp; sharing and tap <em>Delete account</em> (or Account → Delete account in MySplitIt Web). This removes your profile, phone number, search entries, notification addresses and sign-in, deletes the shared groups you created (for everyone in them) and takes you out of other people's groups; your name stays in their past expenses, without your email. It happens right away. Groups that are only on your phone stay there until you delete them or uninstall the app. You can also ask us to do it: see <a href="delete-account.html">Delete your MySplitIt account</a>.</p>
+  <p>We don't use your data for advertising, profiling, automated decisions with legal effects, or to train AI models, and we don't combine it with data from other sources.</p>
 
-  <h2>Children</h2>
-  <p>MySplitIt lets parents count their kids for splitting costs. It doesn't collect any information from children; kids are only a number on a family's entry.</p>
+  <h2>6. Who we share data with</h2>
+  <p>We don't sell your personal data, and we don't "share" it for cross-context behavioural advertising (as the California CCPA/CPRA defines it). We share it only with:</p>
+  <ul>
+    <li><strong>The people in your shared groups</strong>, and signed-in users who search for your exact email or phone number (name and family size only).</li>
+    <li><strong>Service providers that process data for us</strong>, under their data processing terms:
+      <ul>
+        <li>Google Firebase (Authentication, Cloud Firestore, Cloud Messaging): sign-in, storing and syncing shared data, delivering notifications.</li>
+        <li>Cloudflare (Workers): our small server that checks phone verification codes and sends group notifications. It doesn't store notification text.</li>
+        <li>Meta (WhatsApp Business Platform): delivering the phone verification message, when that's switched on.</li>
+        <li>GitHub (GitHub Pages): hosting this website and MySplitIt Web.</li>
+        <li>FormSubmit (formsubmit.co): delivering contact-form messages to our email.</li>
+        <li>Google Play: distributing the Android app, under Google's own privacy policy.</li>
+      </ul></li>
+    <li><strong>Authorities</strong>, only when the law requires it, and we'll tell you unless the law forbids it.</li>
+  </ul>
 
-  <h2>Changes</h2>
-  <p>If this policy changes, the date at the top will change too.</p>
+  <h2>7. International transfers</h2>
+  <p>Our providers run servers in several countries; shared data is stored by Google Firebase in the United States. When data leaves your country, we rely on the safeguards our providers offer, such as the European Commission's Standard Contractual Clauses and equivalent mechanisms.</p>
 
-  <h2>Contact</h2>
-  <p>MySplitIt is made by an independent developer. Questions about privacy? Email <a href="mailto:phanee.apps@gmail.com">phanee.apps@gmail.com</a> or use the <a href="index.html#contact">contact form</a>.</p>
+  <h2>8. How long we keep data</h2>
+  <ul>
+    <li>Account data, profile, phone number and notification addresses: until you delete your account.</li>
+    <li>Shared groups: until the group's creator deletes it, or deletes their account. If you leave a group or delete your account, your name stays in that group's past expenses (without your email) so other members' balances stay correct.</li>
+    <li>Data on your phone: until you delete it or uninstall the app.</li>
+    <li>Contact-form messages: only as long as needed to answer you.</li>
+    <li>Provider logs: for the short periods set by those providers.</li>
+  </ul>
+
+  <h2>9. Your rights</h2>
+  <p>Wherever you live, you can ask us to:</p>
+  <ul>
+    <li><strong>access</strong> the personal data we hold about you, and get a copy in a portable format;</li>
+    <li><strong>correct</strong> it (you can edit your profile in the app at any time);</li>
+    <li><strong>delete</strong> it (Account &amp; sharing → Delete account does this immediately);</li>
+    <li><strong>restrict or object</strong> to how we use it, and <strong>withdraw consent</strong>;</li>
+    <li>name someone to act for you if you can't (a nominee, under India's DPDP Act).</li>
+  </ul>
+  <p>California residents also have the right to know what we collect, to delete and correct it, and not to be treated differently for using these rights. We do not sell or share personal information.</p>
+  <p>To use any right, email <a href="mailto:kssp.apps@gmail.com">kssp.apps@gmail.com</a> from the address on your account. We'll reply within 30 days and may need to confirm it's you. It's free. If you're unhappy with our answer, you can complain to your local data protection authority (for example, in the EU or UK, your supervisory authority; in India, the Data Protection Board).</p>
+
+  <h2>10. Deleting your account</h2>
+  <p>In the app, open Account &amp; sharing and tap <em>Delete account</em> (or Account → Delete account in MySplitIt Web). This removes your profile, phone number, search entries, notification addresses and sign-in, deletes the shared groups you created (for everyone in them) and takes you out of other people's groups; your name stays in their past expenses, without your email. It happens right away. Groups that are only on your phone stay there until you delete them or uninstall the app. You can also ask us to do it: see <a href="delete-account.html">Delete your MySplitIt account</a>.</p>
+
+  <h2>11. Security</h2>
+  <p>Data travels encrypted (HTTPS/TLS). Shared groups are protected by server-side security rules, so only the accounts in a group can read or change it. Passwords are handled by Firebase Authentication, PINs are stored only as salted hashes, and we keep as little data as possible. No system is perfectly secure; if a breach affects your personal data, we'll tell you and the relevant authorities as the law requires.</p>
+
+  <h2>12. Children</h2>
+  <p>Signing in and sharing are for people aged 18 or over. MySplitIt doesn't knowingly collect personal data from children. Parents can count their kids in a family for splitting costs, but kids are only a number, with no names or other details required. If you believe a child has made an account, email us and we'll delete it.</p>
+
+  <h2>13. Changes to this policy</h2>
+  <p>If we change this policy, we'll update the date at the top. For important changes, we'll also tell you in the app or on this website before they take effect.</p>
+
+  <h2>14. Contact</h2>
+  <p>Questions or requests about privacy: <a href="mailto:kssp.apps@gmail.com">kssp.apps@gmail.com</a>, or the <a href="index.html#contact">contact form</a>.</p>
 </main>
 <footer class="site-footer">
   <div class="wrap">
     <a class="brand" href="index.html"><img src="assets/icon.svg" alt="">MySplitIt</a>
-    <span>© 2026 MySplitIt</span>
+    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · © 2026 MySplitIt</span>
   </div>
 </footer>
 </body>
