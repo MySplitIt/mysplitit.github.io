@@ -124,7 +124,7 @@ function SignIn() {
       <button class="btn ghost" disabled=${!C.isEmail(email)} onClick=${() => D.signInForTesting(email.toLowerCase()).catch((e) => setMsg(e.message))}>Test sign-in</button></div>`}
     ${msg && html`<p class="bad" style="margin:0">${msg}</p>`}
     ${deleted && html`<p class="good" style="margin:0">Your MySplitIt account is deleted.</p>`}
-    <p class="small muted" style="margin:0">New here? Signing in creates your account. MySplitIt only reads your name and email. <a href="../privacy.html">Privacy</a></p>
+    <p class="small muted" style="margin:0">New here? Signing in creates your account. By continuing you agree to the <a href="../terms.html">Terms of use</a> and <a href="../privacy.html">Privacy policy</a>.</p>
     <a class="small" href="../">← Back to the MySplitIt website</a>
   </div></div>`;
 }
@@ -1050,7 +1050,8 @@ function AccountPage() {
     <${InstallBanner} always=${true} />
     <div class="card stack"><h3>App</h3>
       <span class="small muted">Get the Android app for offline use on your phone, app lock and more.</span>
-      <div class="row wrap"><a class="btn ghost" href="../#download">Download the Android app</a><button class="btn ghost" onClick=${toggleTheme}>Switch light / dark</button></div></div>
+      <div class="row wrap"><a class="btn ghost" href="../#download">Download the Android app</a><button class="btn ghost" onClick=${toggleTheme}>Switch light / dark</button></div>
+      <p class="small muted" style="margin:0"><a href="../privacy.html">Privacy policy</a> · <a href="../terms.html">Terms of use</a></p></div>
     <div class="row wrap"><button class="btn ghost" onClick=${() => D.signOut()}>Sign out</button>
       <button class="btn text danger" onClick=${() => setConfirmDelete(true)}>Delete account</button></div>
     ${confirmDelete && html`<${DeleteAccountDialog} onClose=${() => setConfirmDelete(false)} />`}
