@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=20261105b">
+  <link rel="stylesheet" href="assets/style.css?v=20261120b">
   <script>
     // Apply a saved theme before the page paints.
     try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -40,7 +40,7 @@
         <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </button>
-      <a class="btn btn-primary btn-small" href="#download">Download</a>
+      <a class="play-badge play-badge-nav" href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener"><img src="assets/google-play-badge.png" alt="Get it on Google Play" height="44"></a>
       <button class="icon-btn menu-btn" id="menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
@@ -57,16 +57,13 @@
         <h1>Split trip costs <span>fairly</span>, families and kids included.</h1>
         <p class="lead">MySplitIt keeps track of who paid what on trips, outings and at home. Count every adult and kid, use separate adult and kid prices, share taxes fairly, and settle up in the fewest payments. Share a group with friends and see expenses appear live on every phone.</p>
         <div class="hero-cta">
-          <a class="btn btn-primary" href="#download">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
-            Download for Android
-          </a>
+          <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener"><img src="assets/google-play-badge.png" alt="Get it on Google Play" height="64"></a>
           <a class="btn btn-web" href="app/">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
             Use MySplitIt Web
           </a>
         </div>
-        <p class="hero-meta">Android app: version 3.8, Android 8.0+, 3 MB · MySplitIt Web: any browser, no install · <a href="#video">Watch how it works</a></p>
+        <p class="hero-meta">Android app on Google Play, Android 8.0+ · MySplitIt Web: any browser, no install · <a href="#video">Watch how it works</a></p>
         <ul class="chips">
           <li>👨‍👩‍👧 Families &amp; kids</li>
           <li>🧾 Tax split fairly</li>
@@ -174,7 +171,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
             Open MySplitIt Web
           </a>
-          <a class="btn btn-ghost" href="#download">Get the Android app</a>
+          <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener"><img src="assets/google-play-badge.png" alt="Get it on Google Play" height="58"></a>
         </div>
         <p class="muted" style="font-size:.9rem;margin:0">The Android app adds offline use without signing in, app lock with PIN or fingerprint, and groups that stay only on your phone.</p>
       </div>
@@ -238,7 +235,7 @@
             <div>
               <h3>Install MySplitIt and sign in</h3>
               <ol>
-                <li><a href="#download">Download the APK</a> on your Android phone and open it. If asked, allow "Install unknown apps" for your browser or file manager, then tap <strong>Install</strong>.</li>
+                <li><a href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener">Install MySplitIt from Google Play</a> on your Android phone (or search "MySplitIt" in the Play Store).</li>
                 <li>Open MySplitIt. You can use it straight away without an account; groups stay on your phone.</li>
                 <li>To share groups with friends, tap the account icon at the top and choose <strong>Continue with Google</strong> or <strong>Continue with email</strong>. An email account asks you to tap a link we email you, once.</li>
                 <li>Set up your profile: your name, your phone number (required, so friends can find you by number), and who usually comes with you (for example 2 adults including you and 1 kid).</li>
@@ -488,29 +485,26 @@
     <div class="wrap">
       <div class="download reveal">
         <div style="position:relative;z-index:1">
-          <span class="eyebrow" style="color:#b2dfdb">Download</span>
-          <h2>Get MySplitIt for Android</h2>
+          <span class="eyebrow" style="color:#b2dfdb">Get the app</span>
+          <h2>Get MySplitIt on Google Play</h2>
           <p>Free, no ads, no account needed to start. No Android phone? Use <a href="app/" style="color:#fff;font-weight:700">MySplitIt Web</a> in any browser with the same account.</p>
-          <a class="btn btn-primary" id="download-btn" href="https://github.com/MySplitIt/mysplitit.github.io/releases/latest/download/MySplitIt.apk">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
-            Download MySplitIt.apk
-          </a>
+          <div class="play-row">
+            <a class="play-badge" href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener"><img src="assets/google-play-badge.png" alt="Get it on Google Play" height="72"></a>
+          </div>
           <dl class="meta">
-            <dt>Version</dt><dd>3.8</dd>
-            <dt>Size</dt><dd>3 MB</dd>
             <dt>Requires</dt><dd>Android 8.0 or newer</dd>
-            <dt>SHA-256</dt><dd><code id="sha">b31d27f50dfabcc96696b19c5453bb6edfbf3c7542c63c2ae29d7147071ed570</code><button class="copy" id="copy-sha" type="button">Copy</button></dd>
+            <dt>Price</dt><dd>Free, no ads, no in-app purchases</dd>
+            <dt>Updates</dt><dd>Automatic through Google Play</dd>
           </dl>
         </div>
         <div class="install">
           <h3 style="color:#fff">Installing</h3>
           <ol>
-            <li>Open the downloaded <strong>MySplitIt.apk</strong> on your phone.</li>
-            <li>If Android asks, allow <strong>Install unknown apps</strong> for your browser or file manager.</li>
-            <li>Tap <strong>Install</strong>. If Play Protect asks, choose <strong>Install anyway</strong>; this app isn't from the Play Store.</li>
-            <li>Updates install over the old version and keep your groups.</li>
+            <li>On your Android phone, tap <strong>Get it on Google Play</strong>, or search <strong>MySplitIt</strong> in the Play Store.</li>
+            <li>Tap <strong>Install</strong>, then <strong>Open</strong>.</li>
+            <li>Use it straight away, or sign in to share groups with friends.</li>
           </ol>
-          <p style="margin:12px 0 0;opacity:.85;font-size:.9rem">Only download MySplitIt from this page. The SHA-256 above lets you check the file hasn't been changed.</p>
+          <p style="margin:12px 0 0;opacity:.85;font-size:.9rem">Installed MySplitIt from this website before? Installing from Google Play updates it in place and keeps your groups.</p>
         </div>
       </div>
     </div>
@@ -532,7 +526,7 @@
         <details class="reveal"><summary>How is tax shared?</summary><p>Enter the ticket prices and the total you paid. The difference (sales tax, GST, service charge) is shared in proportion to what each family's tickets cost.</p></details>
         <details class="reveal"><summary>Can I use different currencies?</summary><p>Yes, any currency: dollars, rupees, euros and more. Each group has its own, and its expenses use it. Balances are kept separately per currency, like "$347.85 + ₹29.67"; MySplitIt never converts with guessed exchange rates.</p></details>
         <details class="reveal"><summary>Is there an iPhone version?</summary><p>Not as an app yet, but iPhone users can use <a href="app/">MySplitIt Web</a> in Safari: sign in with Google or email and share groups with friends on Android. Sign in with Apple isn't available.</p></details>
-        <details class="reveal"><summary>Why do I see a warning when installing?</summary><p>Android warns about any app installed from outside the Play Store. MySplitIt is signed with its own private key; check the SHA-256 on this page if you want to be sure your file is genuine.</p></details>
+        <details class="reveal"><summary>Where do I get the Android app?</summary><p>From <a href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener">Google Play</a>. It's free with no ads, and Play keeps it updated. If you installed MySplitIt from this website before, installing from Play updates that copy and keeps your groups.</p></details>
         <details class="reveal"><summary>I forgot my PIN. What now?</summary><p>For security there's no PIN reset. Clear MySplitIt's storage in Android Settings to start over. Shared groups come back when you sign in again; groups only on your phone are deleted.</p></details>
         <details class="reveal"><summary>How do I delete my data?</summary><p>Delete groups on your phone with a long-press. For shared groups, leave them or delete them for everyone if you created them. To remove your profile, <a href="#contact">contact us</a>.</p></details>
       </div>
@@ -579,7 +573,7 @@
     <nav>
       <a href="#features">Features</a>
       <a href="#how">How to use</a>
-      <a href="#download">Download</a>
+      <a href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener">Google Play</a>
       <a href="app/">MySplitIt Web</a>
       <a href="privacy.html">Privacy</a>
       <a href="terms.html">Terms</a>
@@ -588,6 +582,7 @@
     </nav>
     <span>© <span id="year">2026</span> MySplitIt</span>
   </div>
+  <p class="wrap legal-note">Google Play and the Google Play logo are trademarks of Google LLC.</p>
 </footer>
 
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot">
@@ -597,6 +592,6 @@
   <img id="lightbox-img" alt="">
 </div>
 
-<script src="assets/app.js?v=20261120a"></script>
+<script src="assets/app.js?v=20261120b"></script>
 </body>
 </html>

@@ -375,3 +375,13 @@ img { max-width: 100%; display: block; }
 .doc h1 { font-size: clamp(2rem, 4vw, 2.6rem); }
 .doc h2 { font-size: 1.35rem; margin-top: 2em; }
 .doc li { margin-bottom: 6px; }
+
+/* Google Play badge (Google's official artwork; the PNG has its own transparent padding) */
+.play-badge { display: inline-flex; align-items: center; border-radius: 10px; transition: transform .15s ease; }
+.play-badge:hover { transform: translateY(-1px); }
+.play-badge img { display: block; width: auto; }
+.hero-cta .play-badge { margin: -8px -8px; }
+.play-badge-nav { margin: -6px -6px; }
+@media (max-width: 900px) { .play-badge-nav { display: none; } }
+.play-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.legal-note { font-size: .75rem; color: var(--muted); margin: 14px auto 0; text-align: center; }

@@ -90,7 +90,7 @@
 
   // Copy the APK checksum.
   var copyBtn = document.getElementById("copy-sha");
-  copyBtn.addEventListener("click", function () {
+  if (copyBtn) copyBtn.addEventListener("click", function () {
     var text = document.getElementById("sha").textContent;
     if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () {
       copyBtn.textContent = "Copied";

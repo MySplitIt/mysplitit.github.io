@@ -1049,8 +1049,8 @@ function AccountPage() {
       <button class="btn ghost" style="justify-self:start" onClick=${() => setEditing(true)}>${p ? "Edit profile" : "Set up profile"}</button></div>`}
     <${InstallBanner} always=${true} />
     <div class="card stack"><h3>App</h3>
-      <span class="small muted">Get the Android app for offline use on your phone, app lock and more.</span>
-      <div class="row wrap"><a class="btn ghost" href="../#download">Download the Android app</a><button class="btn ghost" onClick=${toggleTheme}>Switch light / dark</button></div>
+      <span class="small muted">Get the Android app on Google Play for offline use on your phone, app lock and more.</span>
+      <div class="row wrap"><a href="https://play.google.com/store/apps/details?id=com.pk.splitit" rel="noopener" style="display:inline-flex;margin:-6px"><img src="../assets/google-play-badge.png" alt="Get it on Google Play" height="52" style="display:block" /></a><button class="btn ghost" onClick=${toggleTheme}>Switch light / dark</button></div>
       <p class="small muted" style="margin:0"><a href="../privacy.html">Privacy policy</a> · <a href="../terms.html">Terms of use</a></p></div>
     <div class="row wrap"><button class="btn ghost" onClick=${() => D.signOut()}>Sign out</button>
       <button class="btn text danger" onClick=${() => setConfirmDelete(true)}>Delete account</button></div>
