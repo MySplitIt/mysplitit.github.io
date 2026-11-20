@@ -101,7 +101,7 @@
   document.getElementById("year").textContent = String(new Date().getFullYear());
 
   // Contact form: sent by FormSubmit (formsubmit.co) to the MySplitIt inbox.
-  var FORM_ENDPOINT = "https://formsubmit.co/ajax/phanee.apps@gmail.com";
+  var FORM_ENDPOINT = "https://formsubmit.co/ajax/kssp.apps@gmail.com";
   var form = document.getElementById("contact-form");
   var statusEl = document.getElementById("form-status");
   var submitBtn = document.getElementById("contact-submit");
